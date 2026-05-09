@@ -1,9 +1,9 @@
 {
   "profiles": {
-    "UltraDownloader.App (Package)": {
+    "GetIt.App (Package)": {
       "commandName": "MsixPackage"
     },
-    "UltraDownloader.App (Unpackaged)": {
+    "GetIt.App (Unpackaged)": {
       "commandName": "Project"
     }
   }

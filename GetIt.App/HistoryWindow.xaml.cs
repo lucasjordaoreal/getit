@@ -3,10 +3,10 @@ using System.Diagnostics;
 using System.IO;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using UltraDownloader_App.Services;
+using GetIt_App.Services;
 using Windows.Media.Core;
 
-namespace UltraDownloader_App;
+namespace GetIt_App;
 
 public sealed partial class HistoryWindow : Window
 {
@@ -117,3 +117,4 @@ public sealed partial class HistoryWindow : Window
         }
     }
 }
+

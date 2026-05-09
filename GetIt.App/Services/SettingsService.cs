@@ -2,7 +2,7 @@ using System;
 using System.IO;
 using System.Text.Json;
 
-namespace UltraDownloader_App.Services;
+namespace GetIt_App.Services;
 
 public class AppSettings
 {
@@ -44,3 +44,4 @@ public static class SettingsService
         catch { }
     }
 }
+

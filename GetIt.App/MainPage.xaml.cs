@@ -7,10 +7,10 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Xaml.Input;
-using UltraDownloader_App.ViewModels;
-using UltraDownloader_App.Services;
+using GetIt_App.ViewModels;
+using GetIt_App.Services;
 
-namespace UltraDownloader_App;
+namespace GetIt_App;
 
 public sealed partial class MainPage : Page
 {
@@ -213,3 +213,4 @@ public sealed partial class MainPage : Page
         }
     }
 }
+

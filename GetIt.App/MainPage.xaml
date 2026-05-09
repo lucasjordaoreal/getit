@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <Page
-    x:Class="UltraDownloader_App.MainPage"
+    x:Class="GetIt_App.MainPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:local="using:UltraDownloader_App"
-    xmlns:viewModels="using:UltraDownloader_App.ViewModels"
+    xmlns:local="using:GetIt_App"
+    xmlns:viewModels="using:GetIt_App.ViewModels"
     xmlns:media="using:Microsoft.UI.Xaml.Media"
     mc:Ignorable="d"
     Background="Transparent">
@@ -367,3 +367,4 @@
         </Grid>
     </Grid>
 </Page>
+

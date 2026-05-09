@@ -8,7 +8,7 @@ using Microsoft.UI.Xaml.Navigation;
 // To learn more about WinUI, the WinUI project structure,
 // and more about our project templates, see: http://aka.ms/winui-project-info.
 
-namespace UltraDownloader_App;
+namespace GetIt_App;
 
 /// <summary>
 /// Provides application-specific behavior to supplement the default Application class.
@@ -55,3 +55,4 @@ public partial class App : Application
         Window.Activate();
     }
 }
+

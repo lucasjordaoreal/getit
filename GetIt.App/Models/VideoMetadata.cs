@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
-namespace UltraDownloader_App.Models;
+namespace GetIt_App.Models;
 
 public class VideoMetadata
 {
@@ -76,3 +76,4 @@ public class VideoFormat
         }
     }
 }
+

@@ -5,9 +5,9 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Text.Json;
-using UltraDownloader_App.Models;
+using GetIt_App.Models;
 
-namespace UltraDownloader_App.Services;
+namespace GetIt_App.Services;
 
 public interface IDownloadService
 {
@@ -152,3 +152,4 @@ public partial class DownloadService : IDownloadService
         return finalPath;
     }
 }
+

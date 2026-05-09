@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <Window
-    x:Class="UltraDownloader_App.MainWindow"
+    x:Class="GetIt_App.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:local="using:UltraDownloader_App"
+    xmlns:local="using:GetIt_App"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    Title="UltraDownloader.App"
+    Title="GetIt.App"
     mc:Ignorable="d">
     <Window.SystemBackdrop>
         <MicaBackdrop />
@@ -28,3 +28,4 @@
         <Frame x:Name="RootFrame" Grid.Row="1" />
     </Grid>
 </Window>
+

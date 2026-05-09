@@ -5,10 +5,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using UltraDownloader_App.Models;
-using UltraDownloader_App.Services;
+using GetIt_App.Models;
+using GetIt_App.Services;
 
-namespace UltraDownloader_App.ViewModels;
+namespace GetIt_App.ViewModels;
 
 public partial class DownloadItemViewModel : ObservableObject
 {
@@ -274,3 +274,4 @@ public partial class DownloadItemViewModel : ObservableObject
         }
     }
 }
+

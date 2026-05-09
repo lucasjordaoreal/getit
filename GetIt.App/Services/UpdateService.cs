@@ -8,7 +8,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
-namespace UltraDownloader_App.Services;
+namespace GetIt_App.Services;
 
 public class GitHubRelease
 {
@@ -153,3 +153,4 @@ del ""%~f0""
         }
     }
 }
+

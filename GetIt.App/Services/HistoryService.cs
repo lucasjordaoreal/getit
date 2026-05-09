@@ -4,7 +4,7 @@ using System.IO;
 using System.Text.Json;
 using System.Threading.Tasks;
 
-namespace UltraDownloader_App.Services;
+namespace GetIt_App.Services;
 
 public class HistoryItem
 {
@@ -70,3 +70,4 @@ public static class HistoryService
         catch { }
     }
 }
+
