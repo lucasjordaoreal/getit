@@ -1,0 +1,27 @@
+# .gitignore for UltraDownloader (GetIt)
+
+# User-specified exclusion
+Engine/Bin/
+
+# Build artifacts
+bin/
+obj/
+publish/
+
+# IDE files
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Visual Studio Code
+.vscode/
+
+# Project specific
+.gemini/
+.antigravity/
+
+# OS files
+Thumbs.db
+Desktop.ini

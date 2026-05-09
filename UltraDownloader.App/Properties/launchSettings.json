@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "UltraDownloader.App (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "UltraDownloader.App (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}
