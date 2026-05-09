@@ -12,13 +12,16 @@ namespace GetIt_App.Services;
 public interface IDownloadService
 {
     Task<VideoMetadata?> FetchMetadataAsync(string url, CancellationToken cancellationToken = default);
-    Task<string?> DownloadAsync(string url, string formatId, bool isAudioOnly, string audioBitrate, string videoExt, string downloadDir, IProgress<double> progress, CancellationToken cancellationToken = default);
+    Task<string?> DownloadAsync(string url, string formatId, bool isAudioOnly, string audioBitrate, string videoExt, string downloadDir, IProgress<DownloadProgressInfo> progress, CancellationToken cancellationToken = default);
 }
 
 public partial class DownloadService : IDownloadService
 {
+    [GeneratedRegex(@"\[download\]\s+(?<percent>\d+\.\d+)%\s+of\s+.*?\s+at\s+(?<speed>.*?)\s+ETA\s+(?<eta>.*)")]
+    private static partial Regex ProgressDetailedRegex();
+
     [GeneratedRegex(@"\[download\]\s+(?<percent>\d+\.\d+)%")]
-    private static partial Regex ProgressRegex();
+    private static partial Regex ProgressSimpleRegex();
 
     [GeneratedRegex(@"Destination:\s+(?<path>.+)")]
     private static partial Regex DestinationRegex();
@@ -65,7 +68,7 @@ public partial class DownloadService : IDownloadService
 
     public async Task<VideoMetadata?> FetchMetadataAsync(string url, CancellationToken cancellationToken = default)
     {
-        var processStartInfo = CreateProcessStartInfo($"--no-warnings -J \"{url}\"");
+        var processStartInfo = CreateProcessStartInfo($"--no-warnings --encoding UTF-8 -J \"{url}\"");
 
         using var process = new Process { StartInfo = processStartInfo };
         process.Start();
@@ -81,7 +84,7 @@ public partial class DownloadService : IDownloadService
         return JsonSerializer.Deserialize<VideoMetadata>(jsonOutput, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
     }
 
-    public async Task<string?> DownloadAsync(string url, string formatId, bool isAudioOnly, string audioBitrate, string videoExt, string downloadDir, IProgress<double> progress, CancellationToken cancellationToken = default)
+    public async Task<string?> DownloadAsync(string url, string formatId, bool isAudioOnly, string audioBitrate, string videoExt, string downloadDir, IProgress<DownloadProgressInfo> progress, CancellationToken cancellationToken = default)
     {
         Directory.CreateDirectory(downloadDir);
 
@@ -97,7 +100,7 @@ public partial class DownloadService : IDownloadService
             formatArg = $"-f {formatSelector} --merge-output-format {ext} --remux-video {ext}";
         }
 
-        var arguments = $"--ffmpeg-location \"{_ffmpegPath}\" {formatArg} --newline -o \"{Path.Combine(downloadDir, "%(title)s.%(ext)s")}\" \"{url}\"";
+        var arguments = $"--ffmpeg-location \"{_ffmpegPath}\" --encoding UTF-8 {formatArg} --newline -o \"{Path.Combine(downloadDir, "%(title)s.%(ext)s")}\" \"{url}\"";
         var processStartInfo = CreateProcessStartInfo(arguments);
 
         using var process = new Process { StartInfo = processStartInfo };
@@ -119,10 +122,37 @@ public partial class DownloadService : IDownloadService
             {
                 if (cancellationToken.IsCancellationRequested) break;
                 
-                var progMatch = ProgressRegex().Match(line);
-                if (progMatch.Success && double.TryParse(progMatch.Groups["percent"].Value, System.Globalization.CultureInfo.InvariantCulture, out double percentValue))
+                var detailedMatch = ProgressDetailedRegex().Match(line);
+                if (detailedMatch.Success && double.TryParse(detailedMatch.Groups["percent"].Value, System.Globalization.CultureInfo.InvariantCulture, out double p1))
                 {
-                    progress?.Report(percentValue);
+                    string speed = detailedMatch.Groups["speed"].Value.Trim();
+                    string eta = detailedMatch.Groups["eta"].Value.Trim();
+
+                    // Remove (frag ...) from ETA if present
+                    if (eta.Contains('('))
+                    {
+                        eta = eta.Split('(')[0].Trim();
+                    }
+
+                    progress?.Report(new DownloadProgressInfo
+                    {
+                        Percentage = p1,
+                        Speed = speed,
+                        Eta = eta
+                    });
+                }
+                else
+                {
+                    var simpleMatch = ProgressSimpleRegex().Match(line);
+                    if (simpleMatch.Success && double.TryParse(simpleMatch.Groups["percent"].Value, System.Globalization.CultureInfo.InvariantCulture, out double p2))
+                    {
+                        progress?.Report(new DownloadProgressInfo
+                        {
+                            Percentage = p2,
+                            Speed = string.Empty,
+                            Eta = string.Empty
+                        });
+                    }
                 }
 
                 var destMatch = DestinationRegex().Match(line);

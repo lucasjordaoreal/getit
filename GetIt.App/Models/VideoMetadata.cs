@@ -24,6 +24,13 @@ public class VideoMetadata
     public List<VideoFormat> Formats { get; set; } = new();
 }
 
+public class DownloadProgressInfo
+{
+    public double Percentage { get; set; }
+    public string Speed { get; set; } = string.Empty;
+    public string Eta { get; set; } = string.Empty;
+}
+
 public class VideoFormat
 {
     [JsonPropertyName("format_id")]

@@ -14,7 +14,13 @@ namespace GetIt_App;
 
 public sealed partial class MainPage : Page
 {
-    public static ElementTheme CurrentTheme { get; private set; } = ElementTheme.Dark;
+    public static ElementTheme CurrentTheme { get; private set; } = ElementTheme.Default;
+
+    // Guard to prevent saving when we programmatically set the toggle during init
+    private bool _applyingTheme;
+
+    // Loaded settings (kept in memory so we can update only the Theme field on toggle)
+    private AppSettings _settings = new();
 
     public MainPageViewModel ViewModel { get; } = new();
 
@@ -71,25 +77,46 @@ public sealed partial class MainPage : Page
 
     private void ThemeToggle_Toggled(object sender, RoutedEventArgs e)
     {
+        // Skip when we are setting the toggle programmatically
+        if (_applyingTheme) return;
+
         if (sender is ToggleSwitch toggleSwitch)
         {
             CurrentTheme = toggleSwitch.IsOn ? ElementTheme.Light : ElementTheme.Dark;
-            RequestedTheme = CurrentTheme;
-            if (_historyWindow != null)
-            {
-                // In WinUI 3, changing RequestedTheme at runtime requires navigating to a new root or applying to its content
-                // Setting it on the window content is the reliable way
-                if (_historyWindow.Content is FrameworkElement rootElement)
-                {
-                    rootElement.RequestedTheme = CurrentTheme;
-                }
-            }
+            ApplyTheme(CurrentTheme);
+
+            // Persist user preference
+            _settings.Theme = toggleSwitch.IsOn ? "Light" : "Dark";
+            SettingsService.SaveSettings(_settings);
         }
     }
 
     private async void Page_Loaded(object sender, RoutedEventArgs e)
     {
+        // --- Theme resolution ---
+        // Priority: saved user preference > Windows system theme
+        _settings = SettingsService.LoadSettings();
+
+        string resolvedTheme = _settings.Theme ?? SettingsService.GetWindowsTheme();
+        CurrentTheme = resolvedTheme == "Light" ? ElementTheme.Light : ElementTheme.Dark;
+
+        // Set toggle position without triggering the Toggled event
+        _applyingTheme = true;
+        ThemeToggleSwitch.IsOn = CurrentTheme == ElementTheme.Light;
+        _applyingTheme = false;
+
+        ApplyTheme(CurrentTheme);
+
+        // --- Update check ---
         await PerformUpdateCheck(silent: true);
+    }
+
+    /// <summary>Applies a theme to this page and the open history window (if any).</summary>
+    private void ApplyTheme(ElementTheme theme)
+    {
+        RequestedTheme = theme;
+        if (_historyWindow?.Content is FrameworkElement root)
+            root.RequestedTheme = theme;
     }
 
     private async void CheckUpdate_Click(object sender, RoutedEventArgs e)

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
+using System.Text.Encodings.Web;
 using System.Threading.Tasks;
 
 namespace GetIt_App.Services;
@@ -42,7 +43,11 @@ public static class HistoryService
             var dir = Path.GetDirectoryName(HistoryFilePath);
             if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
 
-            var json = JsonSerializer.Serialize(history, new JsonSerializerOptions { WriteIndented = true });
+            var json = JsonSerializer.Serialize(history, new JsonSerializerOptions 
+            { 
+                WriteIndented = true,
+                Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+            });
             await File.WriteAllTextAsync(HistoryFilePath, json);
         }
         catch { }

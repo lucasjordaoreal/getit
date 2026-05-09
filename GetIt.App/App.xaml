@@ -3,8 +3,7 @@
     x:Class="GetIt_App.App"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:local="using:GetIt_App"
-    RequestedTheme="Dark">
+    xmlns:local="using:GetIt_App">
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>

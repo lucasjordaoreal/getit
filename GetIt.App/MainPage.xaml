@@ -78,7 +78,7 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <ToggleSwitch Header="Tema" OffContent="Dark" OnContent="Light" Toggled="ThemeToggle_Toggled" Foreground="{ThemeResource PrimaryTextBrush}" />
+                <ToggleSwitch x:Name="ThemeToggleSwitch" Header="Tema" OffContent="Dark" OnContent="Light" Toggled="ThemeToggle_Toggled" Foreground="{ThemeResource PrimaryTextBrush}" />
                 <TextBlock Grid.Column="1" Text="GetIt" FontWeight="ExtraBold" FontSize="44" Foreground="{ThemeResource PrimaryTextBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" VerticalAlignment="Center">
                     <Button x:Name="BtnUpdate" Content="Verificar Atualizações"
@@ -107,11 +107,14 @@
                     <StackPanel Spacing="16">
                         <Grid Margin="4,0,0,-8">
                             <TextBlock Text="COLE A URL AQUI" FontWeight="ExtraBold" FontSize="13" Foreground="#9CA3AF" VerticalAlignment="Center" />
-                            <ToggleSwitch IsOn="{x:Bind ViewModel.IsQueueMode, Mode=TwoWay}" 
-                                          HorizontalAlignment="Right"
-                                          VerticalAlignment="Center"
-                                          OffContent="Link Único" OnContent="Modo Fila"
-                                          Foreground="#9CA3AF" FontWeight="Bold"/>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="24">
+                                <ToggleSwitch IsOn="{x:Bind ViewModel.IsAutoPasteEnabled, Mode=TwoWay}" 
+                                              OffContent="Auto-Colar" OnContent="Auto-Colar"
+                                              Foreground="#9CA3AF" FontWeight="Bold"/>
+                                <ToggleSwitch IsOn="{x:Bind ViewModel.IsQueueMode, Mode=TwoWay}" 
+                                              OffContent="Link Único" OnContent="Modo Fila"
+                                              Foreground="#9CA3AF" FontWeight="Bold"/>
+                            </StackPanel>
                         </Grid>
                         
                         <Grid ColumnSpacing="12">
@@ -243,14 +246,34 @@
                                     </Grid>
 
                                     <!-- Status / Progress -->
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <TextBlock Text="{x:Bind StatusMessage, Mode=OneWay}" 
-                                                   FontWeight="SemiBold" FontSize="12" Foreground="{x:Bind StatusColor, Mode=OneWay}" />
-                                        <ProgressBar Value="{x:Bind Progress, Mode=OneWay}" 
-                                                     Maximum="100" 
-                                                     Width="100"
-                                                     VerticalAlignment="Center"
-                                                     Visibility="{x:Bind IsDownloadingVisibility, Mode=OneWay}" />
+                                    <StackPanel Spacing="4">
+                                        <StackPanel Orientation="Horizontal" Spacing="12">
+                                            <TextBlock Text="{x:Bind StatusMessage, Mode=OneWay}" 
+                                                       FontWeight="SemiBold" FontSize="12" Foreground="{x:Bind StatusColor, Mode=OneWay}" />
+                                            
+                                            <StackPanel Orientation="Horizontal" Spacing="8" Visibility="{x:Bind IsDownloadingVisibility, Mode=OneWay}">
+                                                <TextBlock Text="{x:Bind Speed, Mode=OneWay}" 
+                                                           FontSize="11" Foreground="{ThemeResource SecondaryTextBrush}" VerticalAlignment="Center" />
+                                                <TextBlock Text="•" FontSize="11" Foreground="{ThemeResource SecondaryTextBrush}" VerticalAlignment="Center" />
+                                                <TextBlock Text="Faltam:" FontSize="11" Foreground="{ThemeResource SecondaryTextBrush}" VerticalAlignment="Center" />
+                                                <TextBlock Text="{x:Bind Eta, Mode=OneWay}" 
+                                                           FontSize="11" Foreground="{ThemeResource SecondaryTextBrush}" VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </StackPanel>
+
+                                        <Grid ColumnSpacing="12" Visibility="{x:Bind IsDownloadingVisibility, Mode=OneWay}">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <ProgressBar Value="{x:Bind Progress, Mode=OneWay}" 
+                                                         Maximum="100" 
+                                                         HorizontalAlignment="Stretch"
+                                                         VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="1" Text="{x:Bind ProgressText, Mode=OneWay}" 
+                                                       FontSize="11" FontWeight="Bold" Foreground="{ThemeResource PrimaryTextBrush}" 
+                                                       VerticalAlignment="Center" MinWidth="35" TextAlignment="Right"/>
+                                        </Grid>
                                     </StackPanel>
                                 </StackPanel>
 

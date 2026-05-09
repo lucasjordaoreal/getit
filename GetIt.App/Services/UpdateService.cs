@@ -30,7 +30,7 @@ public class GitHubAsset
 
 public class UpdateService
 {
-    public const string CurrentVersion = "0.0.2";
+    public const string CurrentVersion = "0.0.4";
     private const string GitHubApiUrl = "https://api.github.com/repos/lucasjordaoreal/getit/releases/latest";
 
     public static async Task<GitHubRelease?> CheckForUpdatesAsync()
@@ -48,7 +48,7 @@ public class UpdateService
 
             if (release != null && !string.IsNullOrEmpty(release.TagName))
             {
-                // Simple version comparison (assumes format like "v1.0.0" or "1.0.0")
+
                 var latestVersion = release.TagName.TrimStart('v', 'V');
                 var currentVersion = CurrentVersion.TrimStart('v', 'V');
 

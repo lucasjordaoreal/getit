@@ -99,7 +99,16 @@ public partial class DownloadItemViewModel : ObservableObject
     public partial AudioBitrate? SelectedAudioBitrate { get; set; }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ProgressText))]
     public partial double Progress { get; set; }
+    
+    [ObservableProperty]
+    public partial string Speed { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string Eta { get; set; } = string.Empty;
+
+    public string ProgressText => $"{Math.Round(Progress, 1)}%";
 
     [ObservableProperty]
     public partial string StatusMessage { get; set; } = "Aguardando na fila...";
@@ -221,7 +230,12 @@ public partial class DownloadItemViewModel : ObservableObject
             var audioBitrate = isAudio ? (SelectedAudioBitrate?.Value ?? "192") : "";
             var videoExt = IsMovSelected ? "mov" : "mp4";
 
-            var progressHandler = new Progress<double>(p => Progress = p);
+            var progressHandler = new Progress<DownloadProgressInfo>(p => 
+            {
+                Progress = p.Percentage;
+                Speed = p.Speed;
+                Eta = p.Eta;
+            });
 
             DownloadedFolderPath = destinationFolder;
 
@@ -238,6 +252,8 @@ public partial class DownloadItemViewModel : ObservableObject
 
             StatusMessage = "Concluído!";
             Progress = 100;
+            Speed = string.Empty;
+            Eta = string.Empty;
             IsDownloadComplete = true;
 
             // Define final path, fallback to folder if not parsed

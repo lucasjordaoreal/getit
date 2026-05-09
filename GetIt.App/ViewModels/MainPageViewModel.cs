@@ -7,6 +7,8 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using GetIt_App.Models;
 using GetIt_App.Services;
+using Windows.ApplicationModel.DataTransfer;
+using Microsoft.UI.Xaml;
 
 namespace GetIt_App.ViewModels;
 
@@ -20,6 +22,8 @@ public partial class MainPageViewModel : ObservableObject
 {
     private readonly IDownloadService _downloadService;
     private CancellationTokenSource? _globalCts;
+    private readonly DispatcherTimer _clipboardTimer;
+    private string _lastClipboardText = string.Empty;
 
     [ObservableProperty]
     public partial string Url { get; set; } = string.Empty;
@@ -62,6 +66,9 @@ public partial class MainPageViewModel : ObservableObject
     [ObservableProperty]
     public partial string DownloadFolder { get; set; } = string.Empty;
 
+    [ObservableProperty]
+    public partial bool IsAutoPasteEnabled { get; set; }
+
     public MainPageViewModel()
     {
         _downloadService = new DownloadService();
@@ -73,11 +80,73 @@ public partial class MainPageViewModel : ObservableObject
         {
             DownloadFolder = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
         }
+
+        _clipboardTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(2)
+        };
+        _clipboardTimer.Tick += ClipboardTimer_Tick;
+
+        IsAutoPasteEnabled = settings.IsAutoPasteEnabled;
+
+        if (IsAutoPasteEnabled)
+        {
+            _clipboardTimer.Start();
+        }
+    }
+
+    private async void ClipboardTimer_Tick(object? sender, object e)
+    {
+        if (!IsAutoPasteEnabled) return;
+
+        try
+        {
+            var content = Clipboard.GetContent();
+            if (content.Contains(StandardDataFormats.Text))
+            {
+                var text = await content.GetTextAsync();
+                
+                // Limpa espaços e quebras de linha
+                text = text?.Trim() ?? string.Empty;
+
+                if (!string.IsNullOrWhiteSpace(text) && text != _lastClipboardText)
+                {
+                    _lastClipboardText = text;
+
+                    if (IsYouTubeLink(text))
+                    {
+                        // Só cola se o campo estiver vazio ou se for um novo link
+                        // Mas OnUrlChanged já limpa o campo, então basta setar.
+                        Url = text;
+                    }
+                }
+            }
+        }
+        catch { /* Clipboard access might fail if another app is using it */ }
+    }
+
+    private bool IsYouTubeLink(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return false;
+        
+        return text.Contains("youtube.com/watch", StringComparison.OrdinalIgnoreCase) || 
+               text.Contains("youtu.be/", StringComparison.OrdinalIgnoreCase) ||
+               text.Contains("youtube.com/shorts", StringComparison.OrdinalIgnoreCase);
+    }
+
+    partial void OnIsAutoPasteEnabledChanged(bool value)
+    {
+        var settings = SettingsService.LoadSettings();
+        settings.IsAutoPasteEnabled = value;
+        SettingsService.SaveSettings(settings);
+
+        if (value) _clipboardTimer.Start();
+        else _clipboardTimer.Stop();
     }
 
     partial void OnUrlChanged(string value)
     {
-        if (!string.IsNullOrWhiteSpace(value) && (value.StartsWith("http") || value.StartsWith("www.")))
+        if (!string.IsNullOrWhiteSpace(value) && (value.StartsWith("http") || value.StartsWith("www.") || value.Contains("youtube.com") || value.Contains("youtu.be")))
         {
             if (!IsQueueMode)
             {
