@@ -29,6 +29,75 @@ public partial class DownloadService : IDownloadService
     [GeneratedRegex(@"Merging formats into\s+""(?<path>.+)""")]
     private static partial Regex MergerRegex();
 
+    [GeneratedRegex(@"^([\d\.]+)(KiB/s|MiB/s|GiB/s|B/s)$")]
+    private static partial Regex SpeedUnitRegex();
+
+    private static string ConvertSpeedToDecimalPrefix(string speedStr)
+    {
+        var match = SpeedUnitRegex().Match(speedStr);
+        if (match.Success && double.TryParse(match.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture, out double val))
+        {
+            string unit = match.Groups[2].Value;
+            double bytesPerSecond = val;
+            if (unit == "KiB/s") bytesPerSecond = val * 1024;
+            else if (unit == "MiB/s") bytesPerSecond = val * 1048576;
+            else if (unit == "GiB/s") bytesPerSecond = val * 1073741824;
+
+            if (bytesPerSecond >= 1000000000)
+                return $"{(bytesPerSecond / 1000000000):F2} GB/s";
+            if (bytesPerSecond >= 1000000)
+                return $"{(bytesPerSecond / 1000000):F2} MB/s";
+            if (bytesPerSecond >= 1000)
+                return $"{(bytesPerSecond / 1000):F2} KB/s";
+            
+            return $"{bytesPerSecond:F0} B/s";
+        }
+        return speedStr;
+    }
+
+    private static string? _cachedGpuEncoder;
+
+    private static async Task<string?> GetGpuEncoderAsync()
+    {
+        if (_cachedGpuEncoder != null) return _cachedGpuEncoder;
+
+        try
+        {
+            var psi = new ProcessStartInfo
+            {
+                FileName = "powershell",
+                Arguments = "-NoProfile -Command \"Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name\"",
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+            
+            using var process = Process.Start(psi);
+            if (process != null)
+            {
+                var output = await process.StandardOutput.ReadToEndAsync();
+                await process.WaitForExitAsync();
+                
+                output = output.ToLowerInvariant();
+                
+                if (output.Contains("nvidia"))
+                    _cachedGpuEncoder = "h264_nvenc";
+                else if (output.Contains("amd") || output.Contains("radeon"))
+                    _cachedGpuEncoder = "h264_amf";
+                else if (output.Contains("intel"))
+                    _cachedGpuEncoder = "h264_qsv";
+                else
+                    _cachedGpuEncoder = "none";
+            }
+        }
+        catch
+        {
+            _cachedGpuEncoder = "none";
+        }
+
+        return _cachedGpuEncoder;
+    }
+
     private readonly string _binPath;
     private readonly string _ytdlpPath;
     private readonly string _ffmpegPath;
@@ -89,18 +158,36 @@ public partial class DownloadService : IDownloadService
         Directory.CreateDirectory(downloadDir);
 
         string formatArg;
+        string postprocessorArgs = string.Empty;
+        var gpuEncoder = await GetGpuEncoderAsync();
+        bool useGpu = gpuEncoder != "none" && !string.IsNullOrEmpty(gpuEncoder);
+
         if (isAudioOnly)
         {
-            formatArg = $"-f bestaudio --extract-audio --audio-format mp3 --audio-quality {audioBitrate}K";
+            formatArg = $"-f \"bestaudio[format_note*=original]/bestaudio/best\" --extract-audio --audio-format mp3 --audio-quality {audioBitrate}K";
         }
         else
         {
             string ext = string.IsNullOrEmpty(videoExt) ? "mp4" : videoExt;
-            string formatSelector = string.IsNullOrEmpty(formatId) ? "\"bestvideo+bestaudio/best\"" : $"\"{formatId}+bestaudio/best\"";
-            formatArg = $"-f {formatSelector} --merge-output-format {ext} --remux-video {ext}";
+            string formatSelector = string.IsNullOrEmpty(formatId) 
+                ? "\"bestvideo+bestaudio[format_note*=original]/bestvideo+bestaudio/best\"" 
+                : $"\"{formatId}+bestaudio[format_note*=original]/{formatId}+bestaudio/best\"";
+            
+            if (ext.Equals("mov", StringComparison.OrdinalIgnoreCase))
+            {
+                formatArg = $"-f {formatSelector} --recode-video {ext}";
+                if (useGpu)
+                {
+                    postprocessorArgs = $"--postprocessor-args \"VideoConvertor:-c:v {gpuEncoder}\"";
+                }
+            }
+            else
+            {
+                formatArg = $"-f {formatSelector} --merge-output-format {ext} --remux-video {ext}";
+            }
         }
 
-        var arguments = $"--ffmpeg-location \"{_ffmpegPath}\" --encoding UTF-8 {formatArg} --newline -o \"{Path.Combine(downloadDir, "%(title)s.%(ext)s")}\" \"{url}\"";
+        var arguments = $"--ffmpeg-location \"{_ffmpegPath}\" --encoding UTF-8 {formatArg} {postprocessorArgs} --newline -o \"{Path.Combine(downloadDir, "%(title)s.%(ext)s")}\" \"{url}\"";
         var processStartInfo = CreateProcessStartInfo(arguments);
 
         using var process = new Process { StartInfo = processStartInfo };
@@ -118,6 +205,7 @@ public partial class DownloadService : IDownloadService
         {
             using var reader = process.StandardOutput;
             string? line;
+            string currentStatus = "Iniciando download...";
             while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
             {
                 if (cancellationToken.IsCancellationRequested) break;
@@ -125,10 +213,10 @@ public partial class DownloadService : IDownloadService
                 var detailedMatch = ProgressDetailedRegex().Match(line);
                 if (detailedMatch.Success && double.TryParse(detailedMatch.Groups["percent"].Value, System.Globalization.CultureInfo.InvariantCulture, out double p1))
                 {
-                    string speed = detailedMatch.Groups["speed"].Value.Trim();
+                    currentStatus = "Download em andamento";
+                    string speed = ConvertSpeedToDecimalPrefix(detailedMatch.Groups["speed"].Value.Trim());
                     string eta = detailedMatch.Groups["eta"].Value.Trim();
 
-                    // Remove (frag ...) from ETA if present
                     if (eta.Contains('('))
                     {
                         eta = eta.Split('(')[0].Trim();
@@ -138,7 +226,8 @@ public partial class DownloadService : IDownloadService
                     {
                         Percentage = p1,
                         Speed = speed,
-                        Eta = eta
+                        Eta = eta,
+                        Status = currentStatus
                     });
                 }
                 else
@@ -146,12 +235,30 @@ public partial class DownloadService : IDownloadService
                     var simpleMatch = ProgressSimpleRegex().Match(line);
                     if (simpleMatch.Success && double.TryParse(simpleMatch.Groups["percent"].Value, System.Globalization.CultureInfo.InvariantCulture, out double p2))
                     {
+                        currentStatus = "Download em andamento";
                         progress?.Report(new DownloadProgressInfo
                         {
                             Percentage = p2,
                             Speed = string.Empty,
-                            Eta = string.Empty
+                            Eta = string.Empty,
+                            Status = currentStatus
                         });
+                    }
+                    else if (line.Contains("[ExtractAudio]") || line.Contains("Extracting audio"))
+                    {
+                        currentStatus = "Convertendo para MP3";
+                        progress?.Report(new DownloadProgressInfo { Percentage = 100, Speed = string.Empty, Eta = string.Empty, Status = currentStatus });
+                    }
+                    else if (line.Contains("[VideoConvertor] Converting video from"))
+                    {
+                        string ext = string.IsNullOrEmpty(videoExt) ? "MP4" : videoExt.ToUpper();
+                        currentStatus = $"Convertendo para {ext}";
+                        progress?.Report(new DownloadProgressInfo { Percentage = 100, Speed = string.Empty, Eta = string.Empty, Status = currentStatus });
+                    }
+                    else if (line.Contains("[Merger] Merging formats into"))
+                    {
+                        currentStatus = "Mesclando arquivos...";
+                        progress?.Report(new DownloadProgressInfo { Percentage = 100, Speed = string.Empty, Eta = string.Empty, Status = currentStatus });
                     }
                 }
 

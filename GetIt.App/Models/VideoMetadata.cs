@@ -29,6 +29,7 @@ public class DownloadProgressInfo
     public double Percentage { get; set; }
     public string Speed { get; set; } = string.Empty;
     public string Eta { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
 }
 
 public class VideoFormat

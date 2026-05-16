@@ -30,7 +30,7 @@ public class GitHubAsset
 
 public class UpdateService
 {
-    public const string CurrentVersion = "0.0.4";
+    public const string CurrentVersion = "0.0.5";
     private const string GitHubApiUrl = "https://api.github.com/repos/lucasjordaoreal/getit/releases/latest";
 
     public static async Task<GitHubRelease?> CheckForUpdatesAsync()

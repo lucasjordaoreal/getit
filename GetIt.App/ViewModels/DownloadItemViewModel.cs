@@ -178,6 +178,7 @@ public partial class DownloadItemViewModel : ObservableObject
                     .Where(f => f.HasVideo && !string.IsNullOrEmpty(f.Resolution) && f.Resolution != "audio only")
                     .OrderByDescending(f => f.Height ?? 0)
                     .ThenByDescending(f => f.Fps)
+                    .ThenBy(f => f.HasAudio ? 1 : 0)
                     .ToList();
 
                 var grouped = cleanFormats.GroupBy(f => f.Resolution).Select(g => g.First()).ToList();
@@ -235,6 +236,10 @@ public partial class DownloadItemViewModel : ObservableObject
                 Progress = p.Percentage;
                 Speed = p.Speed;
                 Eta = p.Eta;
+                if (!string.IsNullOrEmpty(p.Status))
+                {
+                    StatusMessage = p.Status;
+                }
             });
 
             DownloadedFolderPath = destinationFolder;
