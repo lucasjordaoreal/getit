@@ -6,7 +6,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:local="using:GetIt_App"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    Title="GetIt.App"
+    Title="GetIt V2.0"
     mc:Ignorable="d">
     <Window.SystemBackdrop>
         <MicaBackdrop />
@@ -20,12 +20,28 @@
 
         <TitleBar x:Name="AppTitleBar" Title="GetIt" />
 
-        <!--
-            The Frame hosts pages for your application content. Add your UI to
-            MainPage.xaml rather than here so you can use Page features such as
-            navigation events and the Loaded lifecycle.
-        -->
-        <Frame x:Name="RootFrame" Grid.Row="1" />
+        <NavigationView x:Name="NavView" 
+                        Grid.Row="1"
+                        IsBackButtonVisible="Collapsed"
+                        PaneDisplayMode="LeftCompact"
+                        SelectionChanged="NavView_SelectionChanged"
+                        Loaded="NavView_Loaded"
+                        Background="Transparent">
+            <NavigationView.MenuItems>
+                <NavigationViewItem Tag="Home" Content="Home" ToolTipService.ToolTip="Home">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE80F;"/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Tag="History" Content="Histórico" ToolTipService.ToolTip="Histórico">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE81C;"/>
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+            </NavigationView.MenuItems>
+            
+            <Frame x:Name="RootFrame" Background="Transparent" />
+
+        </NavigationView>
     </Grid>
 </Window>
-

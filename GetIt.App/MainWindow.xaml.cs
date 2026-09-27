@@ -1,28 +1,51 @@
+using System;
 using Microsoft.UI.Xaml;
-
-// To learn more about WinUI, the WinUI project structure,
-// and more about our project templates, see: http://aka.ms/winui-project-info.
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media.Animation;
 
 namespace GetIt_App;
 
-/// <summary>
-/// The application window. This hosts a Frame that displays pages. Add your
-/// UI and logic to MainPage.xaml / MainPage.xaml.cs instead of here so you
-/// can use Page features such as navigation events and the Loaded lifecycle.
-/// </summary>
 public sealed partial class MainWindow : Window
 {
     public MainWindow()
     {
-        InitializeComponent();
-
+        this.InitializeComponent();
         ExtendsContentIntoTitleBar = true;
-        SetTitleBar(AppTitleBar);
+    }
 
-        AppWindow.SetIcon("icon.ico");
+    private void NavView_Loaded(object sender, RoutedEventArgs e)
+    {
+        // Select Home by default
+        NavView.SelectedItem = NavView.MenuItems[0];
+        RootFrame.Navigate(typeof(MainPage), null, new SuppressNavigationTransitionInfo());
+    }
 
-        // Navigate the root frame to the main page on startup.
-        RootFrame.Navigate(typeof(MainPage));
+    private void NavView_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
+    {
+        Type pageType;
+
+        if (args.IsSettingsSelected)
+        {
+            pageType = typeof(SettingsPage);
+        }
+        else if (args.SelectedItem is NavigationViewItem item)
+        {
+            var tag = item.Tag?.ToString();
+            pageType = tag switch
+            {
+                "Home" => typeof(MainPage),
+                "History" => typeof(HistoryPage),
+                _ => typeof(MainPage)
+            };
+        }
+        else
+        {
+            pageType = typeof(MainPage);
+        }
+
+        if (RootFrame.CurrentSourcePageType != pageType)
+        {
+            RootFrame.Navigate(pageType, null, args.RecommendedNavigationTransitionInfo);
+        }
     }
 }
-

@@ -71,26 +71,8 @@
                 <RowDefinition Height="Auto" /> <!-- Action Buttons -->
             </Grid.RowDefinitions>
 
-            <!-- Title & Settings -->
-            <Grid Grid.Row="0" Margin="0,0,0,-8">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <ToggleSwitch x:Name="ThemeToggleSwitch" Header="Tema" OffContent="Dark" OnContent="Light" Toggled="ThemeToggle_Toggled" Foreground="{ThemeResource PrimaryTextBrush}" />
-                <TextBlock Grid.Column="1" Text="GetIt" FontWeight="ExtraBold" FontSize="44" Foreground="{ThemeResource PrimaryTextBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <Button x:Name="BtnUpdate" Content="Verificar Atualizações"
-                            Background="Transparent" Foreground="{ThemeResource PrimaryTextBrush}" BorderBrush="{ThemeResource CardBorderBrush}" BorderThickness="1" CornerRadius="16" Padding="12,8" FontWeight="SemiBold"
-                            Click="CheckUpdate_Click">
-                    </Button>
-                    <Button Content="Histórico"
-                            Background="{ThemeResource CardBackgroundBrush}" Foreground="{ThemeResource PrimaryTextBrush}" BorderBrush="{ThemeResource CardBorderBrush}" BorderThickness="1" CornerRadius="16" Padding="16,8" FontWeight="Bold"
-                            Click="HistoryButton_Click">
-                    </Button>
-                </StackPanel>
-            </Grid>
+            <!-- Removed Title & Settings -->
+
 
             <!-- Input Area Card -->
             <Border Grid.Row="1" Background="{ThemeResource CardBackgroundBrush}" 

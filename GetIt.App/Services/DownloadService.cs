@@ -102,15 +102,57 @@ public partial class DownloadService : IDownloadService
     private readonly string _ytdlpPath;
     private readonly string _ffmpegPath;
 
+    public static string ResolveBinPath()
+    {
+        var envPath = Environment.GetEnvironmentVariable("GETIT_ENGINE_BIN");
+        if (!string.IsNullOrEmpty(envPath) && Directory.Exists(envPath) && File.Exists(Path.Combine(envPath, "yt-dlp.exe")))
+        {
+            return envPath;
+        }
+
+        var baseDir = AppContext.BaseDirectory;
+        var directEngineBin = Path.Combine(baseDir, "Engine", "Bin");
+        if (Directory.Exists(directEngineBin) && File.Exists(Path.Combine(directEngineBin, "yt-dlp.exe")))
+        {
+            return directEngineBin;
+        }
+
+        var directBin = Path.Combine(baseDir, "Bin");
+        if (Directory.Exists(directBin) && File.Exists(Path.Combine(directBin, "yt-dlp.exe")))
+        {
+            return directBin;
+        }
+
+        if (File.Exists(Path.Combine(baseDir, "yt-dlp.exe")))
+        {
+            return baseDir;
+        }
+
+        var dirInfo = new DirectoryInfo(baseDir);
+        while (dirInfo != null)
+        {
+            var candidate = Path.Combine(dirInfo.FullName, "Engine", "Bin");
+            if (Directory.Exists(candidate) && File.Exists(Path.Combine(candidate, "yt-dlp.exe")))
+            {
+                return candidate;
+            }
+            dirInfo = dirInfo.Parent;
+        }
+
+        var cwdCandidate = Path.Combine(Directory.GetCurrentDirectory(), "Engine", "Bin");
+        if (Directory.Exists(cwdCandidate) && File.Exists(Path.Combine(cwdCandidate, "yt-dlp.exe")))
+        {
+            return cwdCandidate;
+        }
+
+        return Path.Combine(baseDir, "Engine", "Bin");
+    }
+
     public DownloadService()
     {
-        _binPath = @"D:\UltraDownloader\Engine\Bin";
-        
+        _binPath = ResolveBinPath();
         _ytdlpPath = Path.Combine(_binPath, "yt-dlp.exe");
         _ffmpegPath = Path.Combine(_binPath, "ffmpeg.exe");
-
-        if (!File.Exists(_ytdlpPath)) 
-            throw new FileNotFoundException($"yt-dlp.exe não encontrado em: {_ytdlpPath}");
     }
 
     private ProcessStartInfo CreateProcessStartInfo(string arguments)
@@ -137,20 +179,34 @@ public partial class DownloadService : IDownloadService
 
     public async Task<VideoMetadata?> FetchMetadataAsync(string url, CancellationToken cancellationToken = default)
     {
-        var processStartInfo = CreateProcessStartInfo($"--no-warnings --encoding UTF-8 -J \"{url}\"");
+        var processStartInfo = CreateProcessStartInfo($"--force-ipv4 --no-warnings --encoding UTF-8 -J \"{url}\"");
 
         using var process = new Process { StartInfo = processStartInfo };
         process.Start();
 
-        var jsonOutput = await process.StandardOutput.ReadToEndAsync(cancellationToken);
+        var readOutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
+        var readErrTask = process.StandardError.ReadToEndAsync(cancellationToken);
+        
+        await Task.WhenAll(readOutTask, readErrTask);
         await process.WaitForExitAsync(cancellationToken);
+
+        var jsonOutput = readOutTask.Result;
+        var errOutput = readErrTask.Result;
 
         if (process.ExitCode != 0 || string.IsNullOrWhiteSpace(jsonOutput))
         {
-            throw new Exception("Falha ao buscar metadados. Verifique a URL.");
+            string errorMessage = string.IsNullOrWhiteSpace(errOutput) ? "Falha ao buscar metadados. Verifique a URL." : $"Falha ao buscar metadados (ExitCode {process.ExitCode}): {errOutput.Trim()}";
+            throw new Exception(errorMessage);
         }
 
-        return JsonSerializer.Deserialize<VideoMetadata>(jsonOutput, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        try
+        {
+            return JsonSerializer.Deserialize<VideoMetadata>(jsonOutput, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        }
+        catch (JsonException ex)
+        {
+            throw new Exception($"Falha ao analisar metadados: {ex.Message}");
+        }
     }
 
     public async Task<string?> DownloadAsync(string url, string formatId, bool isAudioOnly, string audioBitrate, string videoExt, string downloadDir, IProgress<DownloadProgressInfo> progress, CancellationToken cancellationToken = default)
@@ -187,7 +243,7 @@ public partial class DownloadService : IDownloadService
             }
         }
 
-        var arguments = $"--ffmpeg-location \"{_ffmpegPath}\" --encoding UTF-8 {formatArg} {postprocessorArgs} --newline -o \"{Path.Combine(downloadDir, "%(title)s.%(ext)s")}\" \"{url}\"";
+        var arguments = $"--force-ipv4 --ffmpeg-location \"{_ffmpegPath}\" --encoding UTF-8 {formatArg} {postprocessorArgs} --newline -o \"{Path.Combine(downloadDir, "%(title)s.%(ext)s")}\" \"{url}\"";
         var processStartInfo = CreateProcessStartInfo(arguments);
 
         using var process = new Process { StartInfo = processStartInfo };

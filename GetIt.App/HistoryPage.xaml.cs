@@ -5,22 +5,31 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using GetIt_App.Services;
 using Windows.Media.Core;
+using Microsoft.UI.Xaml.Navigation;
 
 namespace GetIt_App;
 
-public sealed partial class HistoryWindow : Window
+public sealed partial class HistoryPage : Page
 {
-    public HistoryWindow()
+    public HistoryPage()
     {
-        InitializeComponent();
-        ExtendsContentIntoTitleBar = true;
-        
-        if (this.Content is FrameworkElement rootElement)
-        {
-            rootElement.RequestedTheme = MainPage.CurrentTheme;
-        }
+        this.InitializeComponent();
+        this.Loaded += HistoryPage_Loaded;
+    }
 
+    private void HistoryPage_Loaded(object sender, RoutedEventArgs e)
+    {
         LoadHistory();
+    }
+
+    protected override void OnNavigatedFrom(NavigationEventArgs e)
+    {
+        if (PlayerElement.MediaPlayer != null)
+        {
+            PlayerElement.MediaPlayer.Pause();
+            PlayerElement.Source = null;
+        }
+        base.OnNavigatedFrom(e);
     }
 
     private async void LoadHistory()
@@ -33,11 +42,6 @@ public sealed partial class HistoryWindow : Window
     {
         await HistoryService.ClearHistoryAsync();
         LoadHistory();
-    }
-
-    private void HistoryList_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        // Optional: auto play when selected
     }
 
     private string ResolveActualPath(string path)
@@ -71,7 +75,6 @@ public sealed partial class HistoryWindow : Window
             {
                 if (File.Exists(path))
                 {
-                    // Select file in explorer
                     Process.Start("explorer.exe", $"/select,\"{path}\"");
                 }
                 else if (Directory.Exists(path))
@@ -107,14 +110,4 @@ public sealed partial class HistoryWindow : Window
             }
         }
     }
-
-    private void Window_Closed(object sender, WindowEventArgs args)
-    {
-        if (PlayerElement.MediaPlayer != null)
-        {
-            PlayerElement.MediaPlayer.Pause();
-            PlayerElement.Source = null;
-        }
-    }
 }
-
