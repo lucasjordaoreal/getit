@@ -26,6 +26,7 @@ public partial class MainPageViewModel : ObservableObject
     private string _lastClipboardText = string.Empty;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanAddUrl))]
     public partial string Url { get; set; } = string.Empty;
 
     public ObservableCollection<DownloadItemViewModel> DownloadQueue { get; } = new();
@@ -33,35 +34,23 @@ public partial class MainPageViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsNotDownloading))]
     [NotifyPropertyChangedFor(nameof(IsDownloadingVisibility))]
+    [NotifyPropertyChangedFor(nameof(CanAddUrl))]
+    [NotifyPropertyChangedFor(nameof(CanStartDownloads))]
     public partial bool IsDownloadingAll { get; set; }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(QueueClearText))]
-    [NotifyPropertyChangedFor(nameof(QueueDownloadText))]
-    public partial bool IsQueueMode { get; set; }
+    public partial string InputError { get; set; } = string.Empty;
 
-    public string QueueClearText => IsQueueMode ? "Limpar Fila" : "Limpar";
-    public string QueueDownloadText => IsQueueMode ? "Baixar Fila" : "Baixar Agora";
-
-    partial void OnIsQueueModeChanged(bool value)
-    {
-        if (!value && DownloadQueue.Count > 1)
-        {
-            var first = DownloadQueue.First();
-            DownloadQueue.Clear();
-            DownloadQueue.Add(first);
-        }
-
-        foreach (var item in DownloadQueue)
-        {
-            item.IsQueueMode = value;
-        }
-    }
+    public bool CanAddUrl => !IsDownloadingAll && !string.IsNullOrWhiteSpace(Url);
+    public bool CanStartDownloads => !IsDownloadingAll &&
+        DownloadQueue.Any(item => item.HasMetadata && !item.IsDownloadComplete) &&
+        !DownloadQueue.Any(item => item.IsFetching);
 
     public bool IsNotDownloading => !IsDownloadingAll;
     public Microsoft.UI.Xaml.Visibility IsDownloadingVisibility => IsDownloadingAll ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
 
     public Microsoft.UI.Xaml.Visibility HasItemsVisibility => DownloadQueue.Any() ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
+    public Microsoft.UI.Xaml.Visibility IsQueueEmptyVisibility => DownloadQueue.Any() ? Microsoft.UI.Xaml.Visibility.Collapsed : Microsoft.UI.Xaml.Visibility.Visible;
 
     [ObservableProperty]
     public partial string DownloadFolder { get; set; } = string.Empty;
@@ -72,7 +61,12 @@ public partial class MainPageViewModel : ObservableObject
     public MainPageViewModel()
     {
         _downloadService = new DownloadService();
-        DownloadQueue.CollectionChanged += (s, e) => OnPropertyChanged(nameof(HasItemsVisibility));
+        DownloadQueue.CollectionChanged += (s, e) =>
+        {
+            OnPropertyChanged(nameof(HasItemsVisibility));
+            OnPropertyChanged(nameof(IsQueueEmptyVisibility));
+            OnPropertyChanged(nameof(CanStartDownloads));
+        };
         
         var settings = SettingsService.LoadSettings();
         DownloadFolder = settings.LastDownloadFolder;
@@ -146,27 +140,37 @@ public partial class MainPageViewModel : ObservableObject
 
     partial void OnUrlChanged(string value)
     {
-        if (!string.IsNullOrWhiteSpace(value) && (value.StartsWith("http") || value.StartsWith("www.") || value.Contains("youtube.com") || value.Contains("youtu.be")))
-        {
-            if (!IsQueueMode)
-            {
-                ClearQueue();
-            }
-            AddNewDownloadItem(value);
-            // Limpa o campo para poder colar mais
-            Url = string.Empty;
-        }
+        InputError = string.Empty;
     }
 
-    private void AddNewDownloadItem(string link)
+    [RelayCommand]
+    private void AddUrl()
     {
+        var link = Url.Trim();
+        if (!Uri.TryCreate(link, UriKind.Absolute, out var uri) ||
+            (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+        {
+            InputError = "Digite um endereço válido começando com https:// ou http://.";
+            return;
+        }
+
+        Url = string.Empty;
+        InputError = string.Empty;
+
         var item = new DownloadItemViewModel(link, _downloadService);
-        item.IsQueueMode = IsQueueMode;
         item.OnRemoveRequested = i => DownloadQueue.Remove(i);
-        DownloadQueue.Add(item);
-        
-        // Start fetching metadata
+        item.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName is nameof(DownloadItemViewModel.IsFetching) or
+                nameof(DownloadItemViewModel.HasMetadata) or
+                nameof(DownloadItemViewModel.IsDownloadComplete))
+            {
+                OnPropertyChanged(nameof(CanStartDownloads));
+            }
+        };
+
         _ = item.FetchMetadataAsync();
+        DownloadQueue.Add(item);
     }
 
     [RelayCommand]
@@ -204,6 +208,10 @@ public partial class MainPageViewModel : ObservableObject
         if (!DownloadQueue.Any()) return;
 
         IsDownloadingAll = true;
+        foreach (var item in DownloadQueue)
+        {
+            item.IsQueueLocked = true;
+        }
 
         _globalCts?.Cancel();
         _globalCts = new CancellationTokenSource();
@@ -222,6 +230,10 @@ public partial class MainPageViewModel : ObservableObject
         }
         finally
         {
+            foreach (var item in DownloadQueue)
+            {
+                item.IsQueueLocked = false;
+            }
             IsDownloadingAll = false;
         }
     }

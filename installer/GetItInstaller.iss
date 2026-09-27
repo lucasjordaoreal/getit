@@ -2,7 +2,7 @@
 ; Configurado para instalacao inicial e atualizacoes futuras automaticas (in-place upgrade)
 
 #define MyAppName "GetIt"
-#define MyAppVersion "0.0.7"
+#define MyAppVersion "0.0.8"
 #define MyAppPublisher "Lucas Jordao"
 #define MyAppURL "https://github.com/lucasjordaoreal/getit"
 #define MyAppExeName "GetIt.exe"

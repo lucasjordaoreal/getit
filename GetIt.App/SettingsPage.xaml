@@ -8,18 +8,33 @@
     mc:Ignorable="d"
     Background="Transparent">
 
-    <Grid Margin="24">
-        <StackPanel Spacing="16" MaxWidth="760" HorizontalAlignment="Stretch">
-            <TextBlock Text="Configurações" FontSize="28" FontWeight="Bold" Foreground="{ThemeResource AppTextBrush}" />
+    <Grid Margin="24,20">
+        <StackPanel Spacing="20" MaxWidth="720" HorizontalAlignment="Stretch">
+            <StackPanel Spacing="4">
+                <TextBlock Text="Configurações" FontSize="26" FontWeight="Bold" Foreground="{ThemeResource AppTextBrush}" />
+                <TextBlock Text="Ajuste a aparência e mantenha os componentes atualizados."
+                           FontSize="14" Foreground="{ThemeResource AppSecondaryTextBrush}" />
+            </StackPanel>
 
-            <Border Background="{ThemeResource AppCardBrush}" BorderBrush="{ThemeResource AppBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="18">
-                <StackPanel Spacing="16">
-                    <TextBlock Text="Geral" FontSize="18" FontWeight="SemiBold" Foreground="{ThemeResource AppTextBrush}" />
-                    
-                    <ToggleSwitch x:Name="ThemeToggle" Header="Modo Claro" OffContent="Desativado" OnContent="Ativado" Toggled="ThemeToggle_Toggled" />
-                    
-                    <Button Content="Forçar atualização do yt-dlp" Click="UpdateYtDlp_Click" />
-                    <TextBlock x:Name="UpdateStatusText" Foreground="{ThemeResource AppSecondaryTextBrush}" />
+            <Border Background="{ThemeResource AppCardBrush}" BorderBrush="{ThemeResource AppBorderBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="20">
+                <StackPanel Spacing="20">
+                    <TextBlock Text="Aparência" FontSize="17" FontWeight="SemiBold" Foreground="{ThemeResource AppTextBrush}" />
+                    <ToggleSwitch x:Name="ThemeToggle" Header="Tema claro" OffContent="Escuro" OnContent="Claro"
+                                  Toggled="ThemeToggle_Toggled" />
+                    <Border Height="1" Background="{ThemeResource AppBorderBrush}" />
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Componentes" FontSize="17" FontWeight="SemiBold" Foreground="{ThemeResource AppTextBrush}" />
+                        <TextBlock Text="Atualize o yt-dlp para manter a compatibilidade com os sites de vídeo."
+                                   FontSize="13" Foreground="{ThemeResource AppSecondaryTextBrush}" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                        <Button x:Name="UpdateButton" Content="Verificar atualização" Click="UpdateYtDlp_Click"
+                                MinWidth="164" />
+                        <ProgressRing x:Name="UpdateProgressRing" Width="20" Height="20" IsActive="False"
+                                      Visibility="Collapsed" />
+                    </StackPanel>
+                    <InfoBar x:Name="UpdateStatusInfoBar" IsOpen="False" IsClosable="False" />
                 </StackPanel>
             </Border>
         </StackPanel>

@@ -12,34 +12,36 @@
 
             <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key="Light">
-                    <Color x:Key="SystemAccentColor">#0878F9</Color>
-                    <SolidColorBrush x:Key="AppSurfaceBrush" Color="#DDEBF8" />
-                    <SolidColorBrush x:Key="AppPaneBrush" Color="#D9E9F8" />
-                    <SolidColorBrush x:Key="AppCardBrush" Color="#C9E5F5" />
-                    <SolidColorBrush x:Key="AppCardStrongBrush" Color="#E6F2FB" />
-                    <SolidColorBrush x:Key="AppBorderBrush" Color="#B5D0E8" />
-                    <SolidColorBrush x:Key="AppInputBrush" Color="#DCEBF8" />
-                    <SolidColorBrush x:Key="AppTextBrush" Color="#17365D" />
-                    <SolidColorBrush x:Key="AppSecondaryTextBrush" Color="#58799E" />
-                    <SolidColorBrush x:Key="AppAccentBrush" Color="#0878F9" />
+                    <Color x:Key="SystemAccentColor">#007F73</Color>
+                    <SolidColorBrush x:Key="AppSurfaceBrush" Color="#F1F4F5" />
+                    <SolidColorBrush x:Key="AppPaneBrush" Color="#E9EFF0" />
+                    <SolidColorBrush x:Key="AppCardBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="AppCardStrongBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="AppBorderBrush" Color="#D7E0E2" />
+                    <SolidColorBrush x:Key="AppInputBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="AppTextBrush" Color="#17272B" />
+                    <SolidColorBrush x:Key="AppSecondaryTextBrush" Color="#53696D" />
+                    <SolidColorBrush x:Key="AppAccentBrush" Color="#007F73" />
                     <SolidColorBrush x:Key="AppAccentTextBrush" Color="#FFFFFF" />
-                    <SolidColorBrush x:Key="AppSuccessBrush" Color="#08A96B" />
-                    <SolidColorBrush x:Key="ApplicationPageBackgroundThemeBrush" Color="#DDEBF8" />
+                    <SolidColorBrush x:Key="AppSuccessBrush" Color="#008A62" />
+                    <SolidColorBrush x:Key="AppErrorBrush" Color="#C63736" />
+                    <SolidColorBrush x:Key="ApplicationPageBackgroundThemeBrush" Color="#F1F4F5" />
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
-                    <Color x:Key="SystemAccentColor">#0A84FF</Color>
-                    <SolidColorBrush x:Key="AppSurfaceBrush" Color="#071226" />
-                    <SolidColorBrush x:Key="AppPaneBrush" Color="#061020" />
-                    <SolidColorBrush x:Key="AppCardBrush" Color="#B30B1A33" />
-                    <SolidColorBrush x:Key="AppCardStrongBrush" Color="#CC0B1A33" />
-                    <SolidColorBrush x:Key="AppBorderBrush" Color="#334D7099" />
-                    <SolidColorBrush x:Key="AppInputBrush" Color="#9908152A" />
-                    <SolidColorBrush x:Key="AppTextBrush" Color="#EAF2FF" />
-                    <SolidColorBrush x:Key="AppSecondaryTextBrush" Color="#91A9CA" />
-                    <SolidColorBrush x:Key="AppAccentBrush" Color="#0878F9" />
-                    <SolidColorBrush x:Key="AppAccentTextBrush" Color="#FFFFFF" />
-                    <SolidColorBrush x:Key="AppSuccessBrush" Color="#00C875" />
-                    <SolidColorBrush x:Key="ApplicationPageBackgroundThemeBrush" Color="#071226" />
+                    <Color x:Key="SystemAccentColor">#49C5A8</Color>
+                    <SolidColorBrush x:Key="AppSurfaceBrush" Color="#111A1B" />
+                    <SolidColorBrush x:Key="AppPaneBrush" Color="#141F20" />
+                    <SolidColorBrush x:Key="AppCardBrush" Color="#1B2829" />
+                    <SolidColorBrush x:Key="AppCardStrongBrush" Color="#233233" />
+                    <SolidColorBrush x:Key="AppBorderBrush" Color="#344446" />
+                    <SolidColorBrush x:Key="AppInputBrush" Color="#172324" />
+                    <SolidColorBrush x:Key="AppTextBrush" Color="#E7F0EF" />
+                    <SolidColorBrush x:Key="AppSecondaryTextBrush" Color="#9FB3B2" />
+                    <SolidColorBrush x:Key="AppAccentBrush" Color="#49C5A8" />
+                    <SolidColorBrush x:Key="AppAccentTextBrush" Color="#0B2521" />
+                    <SolidColorBrush x:Key="AppSuccessBrush" Color="#55C89B" />
+                    <SolidColorBrush x:Key="AppErrorBrush" Color="#FF7B72" />
+                    <SolidColorBrush x:Key="ApplicationPageBackgroundThemeBrush" Color="#111A1B" />
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
 
@@ -47,7 +49,7 @@
             <CornerRadius x:Key="OverlayCornerRadius">8</CornerRadius>
 
             <!-- Font settings globally -->
-            <FontFamily x:Key="ContentControlThemeFontFamily">Segoe UI Variable, Inter, San Francisco, Arial</FontFamily>
+            <FontFamily x:Key="ContentControlThemeFontFamily">Segoe UI Variable</FontFamily>
             
         </ResourceDictionary>
     </Application.Resources>

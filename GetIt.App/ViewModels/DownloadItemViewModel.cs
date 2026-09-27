@@ -29,13 +29,12 @@ public partial class DownloadItemViewModel : ObservableObject
     public partial bool IsDownloading { get; set; }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(RemoveVisibility))]
-    public partial bool IsQueueMode { get; set; }
-
-    public Microsoft.UI.Xaml.Visibility RemoveVisibility => IsQueueMode ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
+    [NotifyPropertyChangedFor(nameof(CanEditQueue))]
+    public partial bool IsQueueLocked { get; set; }
 
     public bool IsNotBusy => !IsFetching && !IsDownloading;
     public bool IsNotDownloading => !IsDownloading;
+    public bool CanEditQueue => !IsDownloading && !IsQueueLocked;
 
     public Microsoft.UI.Xaml.Visibility IsFetchingVisibility => IsFetching ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
     public Microsoft.UI.Xaml.Visibility IsDownloadingVisibility => IsDownloading ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;

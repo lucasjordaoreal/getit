@@ -13,41 +13,17 @@
     
     <Page.Resources>
         <ResourceDictionary>
-            <ResourceDictionary.ThemeDictionaries>
-                <ResourceDictionary x:Key="Default">
-                    <SolidColorBrush x:Key="AppBackgroundBrush" Color="#071226" />
-                    <SolidColorBrush x:Key="CardBackgroundBrush" Color="#B30B1A33" />
-                    <SolidColorBrush x:Key="CardBorderBrush" Color="#334D7099" />
-                    <SolidColorBrush x:Key="PrimaryTextBrush" Color="#EAF2FF" />
-                    <SolidColorBrush x:Key="SecondaryTextBrush" Color="#91A9CA" />
-                    <SolidColorBrush x:Key="InputBackgroundBrush" Color="#9908152A" />
-                    <SolidColorBrush x:Key="InputBorderBrush" Color="#334D7099" />
-                    <SolidColorBrush x:Key="AccentButtonBgBrush" Color="#0878F9" />
-                    <SolidColorBrush x:Key="AccentButtonFgBrush" Color="White" />
-                </ResourceDictionary>
-                <ResourceDictionary x:Key="Light">
-                    <SolidColorBrush x:Key="AppBackgroundBrush" Color="#DDEBF8" />
-                    <SolidColorBrush x:Key="CardBackgroundBrush" Color="#C9E5F5" />
-                    <SolidColorBrush x:Key="CardBorderBrush" Color="#B5D0E8" />
-                    <SolidColorBrush x:Key="PrimaryTextBrush" Color="#17365D" />
-                    <SolidColorBrush x:Key="SecondaryTextBrush" Color="#58799E" />
-                    <SolidColorBrush x:Key="InputBackgroundBrush" Color="#DCEBF8" />
-                    <SolidColorBrush x:Key="InputBorderBrush" Color="#B5D0E8" />
-                    <SolidColorBrush x:Key="AccentButtonBgBrush" Color="#0878F9" />
-                    <SolidColorBrush x:Key="AccentButtonFgBrush" Color="White" />
-                </ResourceDictionary>
-            </ResourceDictionary.ThemeDictionaries>
 
             <Style x:Key="AccentButtonStyle" TargetType="Button">
-                <Setter Property="Background" Value="{ThemeResource AccentButtonBgBrush}" />
-                <Setter Property="Foreground" Value="{ThemeResource AccentButtonFgBrush}" />
-                <Setter Property="BorderBrush" Value="{ThemeResource AccentButtonBgBrush}" />
+                <Setter Property="Background" Value="{ThemeResource AppAccentBrush}" />
+                <Setter Property="Foreground" Value="{ThemeResource AppAccentTextBrush}" />
+                <Setter Property="BorderBrush" Value="{ThemeResource AppAccentBrush}" />
                 <Setter Property="BorderThickness" Value="0" />
             </Style>
         </ResourceDictionary>
     </Page.Resources>
 
-    <Grid Background="{ThemeResource AppBackgroundBrush}">
+    <Grid Background="{ThemeResource AppSurfaceBrush}">
 
         <!-- Use a Grid to allow ListView to take up remaining space and push the action buttons to the bottom -->
         <Grid MaxWidth="1120" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="24,18,24,20" RowSpacing="14" Loaded="Page_Loaded">
@@ -60,13 +36,13 @@
             </Grid.RowDefinitions>
 
             <StackPanel Grid.Row="0" Spacing="2">
-                <TextBlock Text="Baixar Vídeos" FontSize="28" FontWeight="Bold" Foreground="{ThemeResource PrimaryTextBrush}" />
+                <TextBlock Text="Baixar Vídeos" FontSize="28" FontWeight="Bold" Foreground="{ThemeResource AppTextBrush}" />
                 <TextBlock Text="Cole o link do vídeo, escolha o formato e comece o download."
-                           FontSize="14" Foreground="{ThemeResource SecondaryTextBrush}" />
+                           FontSize="14" Foreground="{ThemeResource AppSecondaryTextBrush}" />
             </StackPanel>
 
-            <Border Grid.Row="1" Background="{ThemeResource CardBackgroundBrush}"
-                    BorderBrush="{ThemeResource CardBorderBrush}" 
+            <Border Grid.Row="1" Background="{ThemeResource AppCardBrush}"
+                    BorderBrush="{ThemeResource AppBorderBrush}"
                     BorderThickness="1" 
                     CornerRadius="10"
                     Padding="12">
@@ -83,39 +59,51 @@
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             
-                            <TextBox PlaceholderText="Ex: https://www.youtube.com/watch?v=..." 
+                            <TextBox PlaceholderText="Cole ou digite um link de vídeo"
                                      Text="{x:Bind ViewModel.Url, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+                                     KeyDown="UrlTextBox_KeyDown"
                                      IsEnabled="{x:Bind ViewModel.IsNotDownloading, Mode=OneWay}" 
                                      CornerRadius="8" Padding="14,10" FontSize="14"
-                                     Background="{ThemeResource InputBackgroundBrush}" BorderBrush="{ThemeResource InputBorderBrush}" BorderThickness="1"
-                                     Foreground="{ThemeResource PrimaryTextBrush}"/>
+                                     Background="{ThemeResource AppInputBrush}" BorderBrush="{ThemeResource AppBorderBrush}" BorderThickness="1"
+                                     Foreground="{ThemeResource AppTextBrush}"/>
 
-                            <Button Grid.Column="1" Command="{x:Bind ViewModel.DownloadAllCommand}"
-                                    IsEnabled="{x:Bind ViewModel.IsNotDownloading, Mode=OneWay}"
+                                <Button Grid.Column="1" Command="{x:Bind ViewModel.AddUrlCommand}"
+                                    IsEnabled="{x:Bind ViewModel.CanAddUrl, Mode=OneWay}"
                                     CornerRadius="8" Padding="18,10" FontWeight="SemiBold"
-                                    Background="{ThemeResource AccentButtonBgBrush}" Foreground="{ThemeResource AccentButtonFgBrush}"
+                                    Background="{ThemeResource AppAccentBrush}" Foreground="{ThemeResource AppAccentTextBrush}"
                                     VerticalAlignment="Center">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <FontIcon Glyph="&#xE896;" FontSize="15" />
-                                    <TextBlock Text="Baixar" />
+                                    <FontIcon Glyph="&#xE710;" FontSize="15" />
+                                    <TextBlock Text="Adicionar" />
                                 </StackPanel>
                             </Button>
                             <Button Grid.Column="2" Command="{x:Bind ViewModel.ClearQueueCommand}"
                                     Visibility="{x:Bind ViewModel.HasItemsVisibility, Mode=OneWay}"
                                     ToolTipService.ToolTip="Limpar fila" Padding="10" CornerRadius="8"
-                                    Background="{ThemeResource InputBackgroundBrush}" Foreground="{ThemeResource PrimaryTextBrush}"
-                                    BorderBrush="{ThemeResource InputBorderBrush}" BorderThickness="1">
+                                    Background="{ThemeResource AppInputBrush}" Foreground="{ThemeResource AppTextBrush}"
+                                    BorderBrush="{ThemeResource AppBorderBrush}" BorderThickness="1">
                                 <FontIcon Glyph="&#xE74D;" FontSize="14" />
                             </Button>
                     </Grid>
                 </Grid>
             </Border>
 
-            <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="16" HorizontalAlignment="Right">
+            <StackPanel Grid.Row="2" Spacing="6">
+                <TextBlock Text="{x:Bind ViewModel.InputError, Mode=OneWay}" FontSize="12" Foreground="{ThemeResource AppErrorBrush}" />
                 <ToggleSwitch IsOn="{x:Bind ViewModel.IsAutoPasteEnabled, Mode=TwoWay}"
-                              OffContent="Auto-colar" OnContent="Auto-colar" FontSize="12" />
-                <ToggleSwitch IsOn="{x:Bind ViewModel.IsQueueMode, Mode=TwoWay}"
-                              OffContent="Link único" OnContent="Modo fila" FontSize="12" />
+                              Header="Preencher com links copiados do YouTube" OffContent="Desativado"
+                              OnContent="Ativado" FontSize="12" />
+            </StackPanel>
+
+            <StackPanel Grid.Row="3" x:Name="EmptyQueueState" Visibility="{x:Bind ViewModel.IsQueueEmptyVisibility, Mode=OneWay}"
+                        HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">
+                <FontIcon Glyph="&#xE8B7;" FontSize="36" Foreground="{ThemeResource AppAccentBrush}"
+                          HorizontalAlignment="Center" />
+                <TextBlock Text="Sua fila está vazia" FontSize="18" FontWeight="SemiBold"
+                           Foreground="{ThemeResource AppTextBrush}" HorizontalAlignment="Center" />
+                <TextBlock Text="Adicione um link acima para ver as opções de formato e qualidade."
+                           FontSize="13" Foreground="{ThemeResource AppSecondaryTextBrush}"
+                           TextAlignment="Center" TextWrapping="Wrap" MaxWidth="360" />
             </StackPanel>
 
             <!-- Download Queue ListView (Hidden scrollbar but scrollable) -->
@@ -144,20 +132,21 @@
                 <ListView.ItemTemplate>
                     <DataTemplate x:DataType="viewModels:DownloadItemViewModel">
                         <!-- Mini Card -->
-                        <Border Background="{ThemeResource CardBackgroundBrush}" 
-                                BorderBrush="{ThemeResource CardBorderBrush}" 
+                        <Border Background="{ThemeResource AppCardBrush}"
+                            BorderBrush="{ThemeResource AppBorderBrush}"
                                 BorderThickness="1" 
                                 CornerRadius="8"
                                 Padding="12">
                             <Grid ColumnSpacing="12">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
 
                                 <!-- Thumbnail -->
-                                <Border CornerRadius="6" Width="100" Height="62" Background="#111" VerticalAlignment="Center">
+                                <Border CornerRadius="6" Width="100" Height="62" Background="{ThemeResource AppInputBrush}" VerticalAlignment="Center">
                                     <Image Source="{x:Bind Metadata.Thumbnail, Mode=OneWay}" Stretch="UniformToFill" 
                                            Visibility="{x:Bind HasMetadataVisibility, Mode=OneWay}"/>
                                 </Border>
@@ -166,7 +155,7 @@
                                 <!-- Info & Controls -->
                                 <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="8">
                                     <TextBlock Text="{x:Bind Metadata.Title, Mode=OneWay}" 
-                                               FontWeight="Bold" FontSize="14" Foreground="{ThemeResource PrimaryTextBrush}" 
+                                               FontWeight="Bold" FontSize="14" Foreground="{ThemeResource AppTextBrush}"
                                                TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
                                     
                                     <Grid ColumnSpacing="8" Visibility="{x:Bind HasMetadataVisibility, Mode=OneWay}">
@@ -176,14 +165,14 @@
                                         </Grid.ColumnDefinitions>
                                         
                                         <!-- Type Toggle -->
-                                        <Border Background="{ThemeResource InputBackgroundBrush}" BorderBrush="{ThemeResource InputBorderBrush}" BorderThickness="1" CornerRadius="12" Padding="2" HorizontalAlignment="Left">
+                                        <Border Background="{ThemeResource AppInputBrush}" BorderBrush="{ThemeResource AppBorderBrush}" BorderThickness="1" CornerRadius="12" Padding="2" HorizontalAlignment="Left">
                                             <StackPanel Orientation="Horizontal">
                                                 <ToggleButton Content="MP4" IsChecked="{x:Bind IsMp4Selected, Mode=TwoWay}" 
-                                                              CornerRadius="10" Padding="12,4" FontSize="12" FontWeight="Bold" Background="Transparent" Foreground="{ThemeResource PrimaryTextBrush}" />
+                                                              CornerRadius="10" Padding="12,4" FontSize="12" FontWeight="Bold" Background="Transparent" Foreground="{ThemeResource AppTextBrush}" />
                                                 <ToggleButton Content="MOV" IsChecked="{x:Bind IsMovSelected, Mode=TwoWay}" 
-                                                              CornerRadius="10" Padding="12,4" FontSize="12" FontWeight="Bold" Background="Transparent" Foreground="{ThemeResource PrimaryTextBrush}" />
+                                                              CornerRadius="10" Padding="12,4" FontSize="12" FontWeight="Bold" Background="Transparent" Foreground="{ThemeResource AppTextBrush}" />
                                                 <ToggleButton Content="ÁUDIO" IsChecked="{x:Bind IsAudioSelected, Mode=TwoWay}" 
-                                                              CornerRadius="10" Padding="12,4" FontSize="12" FontWeight="Bold" Background="Transparent" Foreground="{ThemeResource PrimaryTextBrush}" />
+                                                              CornerRadius="10" Padding="12,4" FontSize="12" FontWeight="Bold" Background="Transparent" Foreground="{ThemeResource AppTextBrush}" />
                                             </StackPanel>
                                         </Border>
 
@@ -194,7 +183,7 @@
                                                   SelectedItem="{x:Bind SelectedFormat, Mode=TwoWay}"
                                                   DisplayMemberPath="DisplayName"
                                                   HorizontalAlignment="Stretch"
-                                                  CornerRadius="12" Padding="12,4" Background="{ThemeResource InputBackgroundBrush}" Foreground="{ThemeResource PrimaryTextBrush}" BorderBrush="{ThemeResource InputBorderBrush}" BorderThickness="1"
+                                                  CornerRadius="12" Padding="12,4" Background="{ThemeResource AppInputBrush}" Foreground="{ThemeResource AppTextBrush}" BorderBrush="{ThemeResource AppBorderBrush}" BorderThickness="1"
                                                   IsEnabled="{x:Bind IsNotDownloading, Mode=OneWay}" />
 
                                         <ComboBox Grid.Column="1"
@@ -203,7 +192,7 @@
                                                   SelectedItem="{x:Bind SelectedAudioBitrate, Mode=TwoWay}"
                                                   DisplayMemberPath="Name"
                                                   HorizontalAlignment="Stretch"
-                                                  CornerRadius="12" Padding="12,4" Background="{ThemeResource InputBackgroundBrush}" Foreground="{ThemeResource PrimaryTextBrush}" BorderBrush="{ThemeResource InputBorderBrush}" BorderThickness="1"
+                                                  CornerRadius="12" Padding="12,4" Background="{ThemeResource AppInputBrush}" Foreground="{ThemeResource AppTextBrush}" BorderBrush="{ThemeResource AppBorderBrush}" BorderThickness="1"
                                                   IsEnabled="{x:Bind IsNotDownloading, Mode=OneWay}" />
                                     </Grid>
 
@@ -215,11 +204,11 @@
                                             
                                             <StackPanel Orientation="Horizontal" Spacing="8" Visibility="{x:Bind IsDownloadingVisibility, Mode=OneWay}">
                                                 <TextBlock Text="{x:Bind Speed, Mode=OneWay}" 
-                                                           FontSize="11" Foreground="{ThemeResource SecondaryTextBrush}" VerticalAlignment="Center" />
-                                                <TextBlock Text="•" FontSize="11" Foreground="{ThemeResource SecondaryTextBrush}" VerticalAlignment="Center" />
-                                                <TextBlock Text="Faltam:" FontSize="11" Foreground="{ThemeResource SecondaryTextBrush}" VerticalAlignment="Center" />
+                                                           FontSize="11" Foreground="{ThemeResource AppSecondaryTextBrush}" VerticalAlignment="Center" />
+                                                <TextBlock Text="•" FontSize="11" Foreground="{ThemeResource AppSecondaryTextBrush}" VerticalAlignment="Center" />
+                                                <TextBlock Text="Faltam:" FontSize="11" Foreground="{ThemeResource AppSecondaryTextBrush}" VerticalAlignment="Center" />
                                                 <TextBlock Text="{x:Bind Eta, Mode=OneWay}" 
-                                                           FontSize="11" Foreground="{ThemeResource SecondaryTextBrush}" VerticalAlignment="Center" />
+                                                           FontSize="11" Foreground="{ThemeResource AppSecondaryTextBrush}" VerticalAlignment="Center" />
                                             </StackPanel>
                                         </StackPanel>
 
@@ -233,7 +222,7 @@
                                                          HorizontalAlignment="Stretch"
                                                          VerticalAlignment="Center" />
                                             <TextBlock Grid.Column="1" Text="{x:Bind ProgressText, Mode=OneWay}" 
-                                                       FontSize="11" FontWeight="Bold" Foreground="{ThemeResource PrimaryTextBrush}" 
+                                                       FontSize="11" FontWeight="Bold" Foreground="{ThemeResource AppTextBrush}"
                                                        VerticalAlignment="Center" MinWidth="35" TextAlignment="Right"/>
                                         </Grid>
                                     </StackPanel>
@@ -243,21 +232,20 @@
                                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                                     <Button Command="{x:Bind PrepareAnotherDownloadCommand}"
                                             Visibility="{x:Bind OpenLocationVisibility, Mode=OneWay}"
-                                            IsEnabled="{x:Bind IsNotDownloading, Mode=OneWay}"
-                                            Background="{ThemeResource AccentButtonBgBrush}" Foreground="{ThemeResource AccentButtonFgBrush}"
+                                            IsEnabled="{x:Bind CanEditQueue, Mode=OneWay}"
+                                            Background="{ThemeResource AppAccentBrush}" Foreground="{ThemeResource AppAccentTextBrush}"
                                             CornerRadius="12" Padding="12,8" FontWeight="Bold">
                                         Outro formato
                                     </Button>
                                     <Button Command="{x:Bind OpenLocationCommand}" 
                                             Visibility="{x:Bind OpenLocationVisibility, Mode=OneWay}"
-                                            Background="{ThemeResource AccentButtonBgBrush}" Foreground="White" CornerRadius="8" Padding="10,8" FontWeight="SemiBold"
+                                            Background="{ThemeResource AppAccentBrush}" Foreground="{ThemeResource AppAccentTextBrush}" CornerRadius="8" Padding="10,8" FontWeight="SemiBold"
                                             ToolTipService.ToolTip="Abrir pasta">
                                         <FontIcon Glyph="&#xE8B7;" FontSize="14" />
                                     </Button>
                                     <Button Command="{x:Bind RemoveCommand}" 
-                                            Visibility="{x:Bind RemoveVisibility, Mode=OneWay}"
-                                            IsEnabled="{x:Bind IsNotDownloading, Mode=OneWay}"
-                                            Background="Transparent" Foreground="{ThemeResource SecondaryTextBrush}" CornerRadius="8" Padding="10,8" FontWeight="Bold" BorderThickness="0"
+                                            IsEnabled="{x:Bind CanEditQueue, Mode=OneWay}"
+                                            Background="Transparent" Foreground="{ThemeResource AppSecondaryTextBrush}" CornerRadius="8" Padding="10,8" FontWeight="Bold" BorderThickness="0"
                                             ToolTipService.ToolTip="Remover da fila">
                                         <FontIcon Glyph="&#xE711;" FontSize="13" />
                                         <Button.Resources>
@@ -275,13 +263,13 @@
             </ListView>
 
             <!-- Download All Card -->
-            <Border Grid.Row="4" Background="{ThemeResource CardBackgroundBrush}"
-                    BorderBrush="{ThemeResource CardBorderBrush}" 
+            <Border Grid.Row="4" Background="{ThemeResource AppCardBrush}"
+                    BorderBrush="{ThemeResource AppBorderBrush}"
                     BorderThickness="1" 
                     CornerRadius="8"
                     Padding="8">
                 
-                    <Border Background="{ThemeResource InputBackgroundBrush}" CornerRadius="6" Padding="10,8" BorderBrush="{ThemeResource InputBorderBrush}" BorderThickness="1">
+                    <Border Background="{ThemeResource AppInputBrush}" CornerRadius="6" Padding="10,8" BorderBrush="{ThemeResource AppBorderBrush}" BorderThickness="1">
                         <Grid ColumnSpacing="12">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
@@ -291,11 +279,21 @@
                             </Grid.ColumnDefinitions>
                             <FontIcon Glyph="&#xE8B7;" Foreground="{ThemeResource AppAccentBrush}" FontSize="16" VerticalAlignment="Center" />
                             <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="1">
-                                <TextBlock Text="Pasta de downloads" FontSize="10" Foreground="{ThemeResource SecondaryTextBrush}" />
-                                <TextBlock Text="{x:Bind ViewModel.DownloadFolder, Mode=OneWay}" FontSize="11" Foreground="{ThemeResource PrimaryTextBrush}" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Text="Pasta de downloads" FontSize="10" Foreground="{ThemeResource AppSecondaryTextBrush}" />
+                                <TextBlock Text="{x:Bind ViewModel.DownloadFolder, Mode=OneWay}" FontSize="11" Foreground="{ThemeResource AppTextBrush}" TextTrimming="CharacterEllipsis" />
                             </StackPanel>
-                            <Button Grid.Column="2" Content="Mudar" Command="{x:Bind ViewModel.ChangeFolderCommand}" Background="{ThemeResource CardBackgroundBrush}" Foreground="{ThemeResource PrimaryTextBrush}" BorderBrush="{ThemeResource CardBorderBrush}" BorderThickness="1" CornerRadius="6" Padding="10,5" />
-                            <Button Grid.Column="3" Content="Parar downloads" Command="{x:Bind ViewModel.CancelAllCommand}"
+                            <Button Grid.Column="2" Content="Mudar" Command="{x:Bind ViewModel.ChangeFolderCommand}" Background="{ThemeResource AppCardBrush}" Foreground="{ThemeResource AppTextBrush}" BorderBrush="{ThemeResource AppBorderBrush}" BorderThickness="1" CornerRadius="6" Padding="10,5" />
+                            <Button Grid.Column="3" Command="{x:Bind ViewModel.DownloadAllCommand}"
+                                    IsEnabled="{x:Bind ViewModel.CanStartDownloads, Mode=OneWay}"
+                                    Visibility="{x:Bind ViewModel.HasItemsVisibility, Mode=OneWay}"
+                                    Background="{ThemeResource AppAccentBrush}" Foreground="{ThemeResource AppAccentTextBrush}"
+                                    CornerRadius="8" Padding="12,7" FontWeight="SemiBold">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <FontIcon Glyph="&#xE896;" FontSize="14" />
+                                    <TextBlock Text="Baixar fila" />
+                                </StackPanel>
+                            </Button>
+                            <Button Grid.Column="4" Content="Parar downloads" Command="{x:Bind ViewModel.CancelAllCommand}"
                                     Visibility="{x:Bind ViewModel.IsDownloadingVisibility, Mode=OneWay}"
                                     Background="Transparent" Foreground="#EF4444" BorderThickness="0" CornerRadius="6" Padding="8,5" />
                         </Grid>

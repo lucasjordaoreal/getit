@@ -17,9 +17,9 @@ public sealed partial class HistoryPage : Page
         this.Loaded += HistoryPage_Loaded;
     }
 
-    private void HistoryPage_Loaded(object sender, RoutedEventArgs e)
+    private async void HistoryPage_Loaded(object sender, RoutedEventArgs e)
     {
-        LoadHistory();
+        await LoadHistoryAsync();
     }
 
     protected override void OnNavigatedFrom(NavigationEventArgs e)
@@ -28,20 +28,38 @@ public sealed partial class HistoryPage : Page
         {
             PlayerElement.MediaPlayer.Pause();
             PlayerElement.Source = null;
+            PlayerEmptyState.Visibility = Visibility.Visible;
         }
         base.OnNavigatedFrom(e);
     }
 
-    private async void LoadHistory()
+    private async System.Threading.Tasks.Task LoadHistoryAsync()
     {
         var history = await HistoryService.LoadHistoryAsync();
         HistoryList.ItemsSource = history;
+        var hasHistory = history.Count > 0;
+        HistoryList.Visibility = hasHistory ? Visibility.Visible : Visibility.Collapsed;
+        HistoryEmptyState.Visibility = hasHistory ? Visibility.Collapsed : Visibility.Visible;
+        ClearHistoryButton.Visibility = hasHistory ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private async void ClearHistory_Click(object sender, RoutedEventArgs e)
     {
+        var dialog = new ContentDialog
+        {
+            Title = "Limpar histórico?",
+            Content = "Esta ação remove todos os downloads da lista do histórico.",
+            PrimaryButtonText = "Limpar",
+            CloseButtonText = "Cancelar",
+            DefaultButton = ContentDialogButton.Close,
+            XamlRoot = XamlRoot
+        };
+
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary)
+            return;
+
         await HistoryService.ClearHistoryAsync();
-        LoadHistory();
+        await LoadHistoryAsync();
     }
 
     private string ResolveActualPath(string path)
@@ -99,14 +117,14 @@ public sealed partial class HistoryPage : Page
             var path = ResolveActualPath(rawPath);
             if (File.Exists(path))
             {
-                NoVideoText.Visibility = Visibility.Collapsed;
+                PlayerEmptyState.Visibility = Visibility.Collapsed;
                 PlayerElement.Source = MediaSource.CreateFromUri(new Uri(path));
                 PlayerElement.MediaPlayer.Play();
             }
             else
             {
                 NoVideoText.Text = "Arquivo não encontrado.";
-                NoVideoText.Visibility = Visibility.Visible;
+                PlayerEmptyState.Visibility = Visibility.Visible;
             }
         }
     }

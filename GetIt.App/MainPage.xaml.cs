@@ -1,11 +1,6 @@
 using System;
-using System.Numerics;
-using System.Threading.Tasks;
-using System.Linq;
-using Microsoft.UI.Composition;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Xaml.Input;
 using GetIt_App.ViewModels;
 using GetIt_App.Services;
@@ -26,37 +21,12 @@ public sealed partial class MainPage : Page
         InitializeComponent();
     }
 
-    private void Button_PointerEntered(object sender, PointerRoutedEventArgs e)
+    private void UrlTextBox_KeyDown(object sender, KeyRoutedEventArgs e)
     {
-        if (sender is UIElement element)
+        if (e.Key == Windows.System.VirtualKey.Enter && ViewModel.AddUrlCommand.CanExecute(null))
         {
-            var visual = ElementCompositionPreview.GetElementVisual(element);
-            var compositor = visual.Compositor;
-            
-            visual.CenterPoint = new Vector3((float)element.ActualSize.X / 2, (float)element.ActualSize.Y / 2, 0);
-
-            var anim = compositor.CreateVector3KeyFrameAnimation();
-            anim.InsertKeyFrame(1.0f, new Vector3(1.04f, 1.04f, 1.0f));
-            anim.Duration = TimeSpan.FromMilliseconds(150);
-            
-            visual.StartAnimation("Scale", anim);
-        }
-    }
-
-    private void Button_PointerExited(object sender, PointerRoutedEventArgs e)
-    {
-        if (sender is UIElement element)
-        {
-            var visual = ElementCompositionPreview.GetElementVisual(element);
-            var compositor = visual.Compositor;
-            
-            visual.CenterPoint = new Vector3((float)element.ActualSize.X / 2, (float)element.ActualSize.Y / 2, 0);
-
-            var anim = compositor.CreateVector3KeyFrameAnimation();
-            anim.InsertKeyFrame(1.0f, new Vector3(1.0f, 1.0f, 1.0f));
-            anim.Duration = TimeSpan.FromMilliseconds(150);
-            
-            visual.StartAnimation("Scale", anim);
+            e.Handled = true;
+            ViewModel.AddUrlCommand.Execute(null);
         }
     }
 

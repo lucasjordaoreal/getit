@@ -38,9 +38,32 @@ public sealed partial class SettingsPage : Page
 
     private async void UpdateYtDlp_Click(object sender, RoutedEventArgs e)
     {
-        UpdateStatusText.Text = "Atualizando yt-dlp...";
-        var updater = new YtDlpUpdateService();
-        var success = await updater.UpdateAsync();
-        UpdateStatusText.Text = success ? "yt-dlp atualizado com sucesso!" : "Falha ao atualizar o yt-dlp.";
+        UpdateButton.IsEnabled = false;
+        UpdateProgressRing.IsActive = true;
+        UpdateProgressRing.Visibility = Visibility.Visible;
+        UpdateStatusInfoBar.Severity = InfoBarSeverity.Informational;
+        UpdateStatusInfoBar.Message = "Verificando atualizações...";
+        UpdateStatusInfoBar.IsOpen = true;
+
+        try
+        {
+            var updater = new YtDlpUpdateService();
+            var success = await updater.UpdateAsync();
+            UpdateStatusInfoBar.Severity = success ? InfoBarSeverity.Success : InfoBarSeverity.Error;
+            UpdateStatusInfoBar.Message = success
+                ? "yt-dlp atualizado com sucesso."
+                : "Não foi possível atualizar o yt-dlp. Verifique se ele está instalado.";
+        }
+        catch (Exception)
+        {
+            UpdateStatusInfoBar.Severity = InfoBarSeverity.Error;
+            UpdateStatusInfoBar.Message = "Ocorreu um erro ao atualizar o yt-dlp.";
+        }
+        finally
+        {
+            UpdateProgressRing.IsActive = false;
+            UpdateProgressRing.Visibility = Visibility.Collapsed;
+            UpdateButton.IsEnabled = true;
+        }
     }
 }
