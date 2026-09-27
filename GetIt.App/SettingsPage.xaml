@@ -8,18 +8,18 @@
     mc:Ignorable="d"
     Background="Transparent">
 
-    <Grid Margin="32">
-        <StackPanel Spacing="24">
-            <TextBlock Text="Configurações" FontSize="32" FontWeight="Bold" />
+    <Grid Margin="24">
+        <StackPanel Spacing="16" MaxWidth="760" HorizontalAlignment="Stretch">
+            <TextBlock Text="Configurações" FontSize="28" FontWeight="Bold" Foreground="{ThemeResource AppTextBrush}" />
 
-            <Border Background="#20000000" CornerRadius="12" Padding="20">
+            <Border Background="{ThemeResource AppCardBrush}" BorderBrush="{ThemeResource AppBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="18">
                 <StackPanel Spacing="16">
-                    <TextBlock Text="Geral" FontSize="20" FontWeight="SemiBold" />
+                    <TextBlock Text="Geral" FontSize="18" FontWeight="SemiBold" Foreground="{ThemeResource AppTextBrush}" />
                     
                     <ToggleSwitch x:Name="ThemeToggle" Header="Modo Claro" OffContent="Desativado" OnContent="Ativado" Toggled="ThemeToggle_Toggled" />
                     
                     <Button Content="Forçar atualização do yt-dlp" Click="UpdateYtDlp_Click" />
-                    <TextBlock x:Name="UpdateStatusText" Foreground="Yellow" />
+                    <TextBlock x:Name="UpdateStatusText" Foreground="{ThemeResource AppSecondaryTextBrush}" />
                 </StackPanel>
             </Border>
         </StackPanel>

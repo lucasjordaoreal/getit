@@ -12,7 +12,7 @@
         <MicaBackdrop />
     </Window.SystemBackdrop>
 
-    <Grid>
+    <Grid Background="{ThemeResource AppSurfaceBrush}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -20,28 +20,59 @@
 
         <TitleBar x:Name="AppTitleBar" Title="GetIt" />
 
-        <NavigationView x:Name="NavView" 
+        <NavigationView x:Name="NavView"
                         Grid.Row="1"
                         IsBackButtonVisible="Collapsed"
-                        PaneDisplayMode="LeftCompact"
+                        IsPaneOpen="True"
+                        IsSettingsVisible="True"
+                        OpenPaneLength="236"
+                        CompactPaneLength="52"
+                        PaneDisplayMode="Left"
                         SelectionChanged="NavView_SelectionChanged"
                         Loaded="NavView_Loaded"
-                        Background="Transparent">
+                        Background="Transparent"
+                        PaneBackground="{ThemeResource AppPaneBrush}"
+                        BorderThickness="0">
+            <NavigationView.PaneHeader>
+                <Grid Margin="18,12,14,20" ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="48" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Border Width="48" Height="48" CornerRadius="12" Background="{ThemeResource AppAccentBrush}">
+                        <FontIcon Glyph="&#xE896;" FontSize="24" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="1">
+                        <TextBlock Text="GetIt" FontSize="22" FontWeight="Bold" Foreground="{ThemeResource AppTextBrush}" />
+                        <TextBlock Text="Baixe o que você ama." FontSize="11" Foreground="{ThemeResource AppSecondaryTextBrush}" />
+                        <TextBlock Text="Rápido. Simples. Sem limites." FontSize="10" Foreground="{ThemeResource AppSecondaryTextBrush}" />
+                    </StackPanel>
+                </Grid>
+            </NavigationView.PaneHeader>
             <NavigationView.MenuItems>
-                <NavigationViewItem Tag="Home" Content="Home" ToolTipService.ToolTip="Home">
+                <NavigationViewItem Tag="Home" Content="Baixar" ToolTipService.ToolTip="Baixar">
                     <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE80F;"/>
+                        <FontIcon Glyph="&#xE896;" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem Tag="History" Content="Histórico" ToolTipService.ToolTip="Histórico">
                     <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE81C;"/>
+                        <FontIcon Glyph="&#xE823;" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
             </NavigationView.MenuItems>
-            
+            <NavigationView.PaneFooter>
+                <Border Margin="14,12" Padding="16" CornerRadius="8"
+                        Background="{ThemeResource AppCardBrush}"
+                        BorderBrush="{ThemeResource AppBorderBrush}" BorderThickness="1">
+                    <StackPanel Spacing="6">
+                        <FontIcon Glyph="&#xE945;" FontSize="18" Foreground="{ThemeResource AppAccentBrush}" />
+                        <TextBlock Text="Mais rápido.\nMais simples.\nSem limites." FontSize="13"
+                                   Foreground="{ThemeResource AppTextBrush}" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
+            </NavigationView.PaneFooter>
             <Frame x:Name="RootFrame" Background="Transparent" />
-
         </NavigationView>
     </Grid>
 </Window>

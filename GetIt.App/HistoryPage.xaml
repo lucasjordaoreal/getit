@@ -16,33 +16,33 @@
         </Grid.ColumnDefinitions>
 
         <!-- Left Side: History List -->
-        <Border Grid.Column="0" Background="#20000000" BorderThickness="0,0,1,0">
+        <Border Grid.Column="0" Background="{ThemeResource AppPaneBrush}" BorderBrush="{ThemeResource AppBorderBrush}" BorderThickness="0,0,1,0">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
                 
-                <Grid Margin="20,20,20,10">
+                <Grid Margin="20,18,20,10">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock Text="Histórico" FontWeight="Bold" FontSize="24" VerticalAlignment="Center" />
-                    <Button Grid.Column="1" Content="Limpar" Click="ClearHistory_Click" Background="#3F1111" Foreground="#EF4444" CornerRadius="8" Padding="12,6" FontWeight="Bold" BorderThickness="0" VerticalAlignment="Center" />
+                    <TextBlock Text="Histórico" FontWeight="Bold" FontSize="26" Foreground="{ThemeResource AppTextBrush}" VerticalAlignment="Center" />
+                    <Button Grid.Column="1" Content="Limpar" Click="ClearHistory_Click" Background="{ThemeResource AppCardBrush}" Foreground="#EF4444" CornerRadius="6" Padding="12,6" FontWeight="SemiBold" BorderBrush="{ThemeResource AppBorderBrush}" BorderThickness="1" VerticalAlignment="Center" />
                 </Grid>
                 
                 <ListView Grid.Row="1" x:Name="HistoryList" Margin="10">
                     <ListView.ItemTemplate>
                         <DataTemplate x:DataType="services:HistoryItem">
-                            <Border Background="#111" CornerRadius="12" Padding="12" Margin="0,0,0,8" BorderThickness="1">
+                            <Border Background="{ThemeResource AppCardBrush}" BorderBrush="{ThemeResource AppBorderBrush}" CornerRadius="8" Padding="12" Margin="0,0,0,8" BorderThickness="1">
                                 <StackPanel Spacing="6">
-                                    <TextBlock Text="{x:Bind Title}" FontWeight="Bold" TextTrimming="CharacterEllipsis" MaxLines="2"/>
-                                    <TextBlock Text="{x:Bind Url}" FontSize="12" Foreground="#0A84FF" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Text="{x:Bind Title}" FontWeight="Bold" Foreground="{ThemeResource AppTextBrush}" TextTrimming="CharacterEllipsis" MaxLines="2"/>
+                                    <TextBlock Text="{x:Bind Url}" FontSize="12" Foreground="{ThemeResource AppAccentBrush}" TextTrimming="CharacterEllipsis"/>
                                     
                                     <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,6,0,0">
-                                        <Button Content="Pasta" Click="OpenFolder_Click" Background="#EAB308" Foreground="#1A1A1A" CornerRadius="8" Padding="10,4" Tag="{x:Bind LocalFilePath}" />
-                                        <Button Content="Tocar" Click="PlayVideo_Click" Background="#0A84FF" Foreground="White" CornerRadius="8" Padding="10,4" Tag="{x:Bind LocalFilePath}" />
+                                        <Button Content="Pasta" Click="OpenFolder_Click" Background="{ThemeResource AppInputBrush}" Foreground="{ThemeResource AppTextBrush}" CornerRadius="6" Padding="10,4" Tag="{x:Bind LocalFilePath}" />
+                                        <Button Content="Tocar" Click="PlayVideo_Click" Background="{ThemeResource AppAccentBrush}" Foreground="White" CornerRadius="6" Padding="10,4" Tag="{x:Bind LocalFilePath}" />
                                     </StackPanel>
                                 </StackPanel>
                             </Border>
@@ -53,9 +53,9 @@
         </Border>
 
         <!-- Right Side: Player -->
-        <Grid Grid.Column="1" Background="#000000">
+        <Grid Grid.Column="1" Background="{ThemeResource AppSurfaceBrush}">
             <MediaPlayerElement x:Name="PlayerElement" AreTransportControlsEnabled="True" AutoPlay="True" />
-            <TextBlock x:Name="NoVideoText" Text="Selecione um vídeo para reproduzir" Foreground="#555" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center" />
+            <TextBlock x:Name="NoVideoText" Text="Selecione um vídeo para reproduzir" Foreground="{ThemeResource AppSecondaryTextBrush}" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center" />
         </Grid>
     </Grid>
 </Page>

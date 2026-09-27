@@ -159,6 +159,14 @@ public partial class DownloadItemViewModel : ObservableObject
         }
     }
 
+    [RelayCommand]
+    private void PrepareAnotherDownload()
+    {
+        IsDownloadComplete = false;
+        Progress = 0;
+        StatusMessage = "Selecione outro formato e baixe novamente.";
+    }
+
     public async Task FetchMetadataAsync()
     {
         IsFetching = true;

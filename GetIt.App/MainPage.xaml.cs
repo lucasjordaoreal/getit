@@ -75,6 +75,11 @@ public sealed partial class MainPage : Page
     /// <summary>Applies a theme to this page.</summary>
     private void ApplyTheme(ElementTheme theme)
     {
+        if (XamlRoot?.Content is FrameworkElement rootElement)
+        {
+            rootElement.RequestedTheme = theme;
+        }
+
         RequestedTheme = theme;
     }
 }

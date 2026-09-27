@@ -12,19 +12,39 @@
 
             <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key="Light">
-                    <Color x:Key="SystemAccentColor">#0A84FF</Color>
-                    <!-- Overriding native System colors for the Soft Tech palette -->
-                    <Color x:Key="SystemAltHighColor">#F5F7FB</Color>
-                    <SolidColorBrush x:Key="ApplicationPageBackgroundThemeBrush" Color="#00F5F7FB" /> <!-- Transparent to show backdrop -->
+                    <Color x:Key="SystemAccentColor">#0878F9</Color>
+                    <SolidColorBrush x:Key="AppSurfaceBrush" Color="#DDEBF8" />
+                    <SolidColorBrush x:Key="AppPaneBrush" Color="#D9E9F8" />
+                    <SolidColorBrush x:Key="AppCardBrush" Color="#C9E5F5" />
+                    <SolidColorBrush x:Key="AppCardStrongBrush" Color="#E6F2FB" />
+                    <SolidColorBrush x:Key="AppBorderBrush" Color="#B5D0E8" />
+                    <SolidColorBrush x:Key="AppInputBrush" Color="#DCEBF8" />
+                    <SolidColorBrush x:Key="AppTextBrush" Color="#17365D" />
+                    <SolidColorBrush x:Key="AppSecondaryTextBrush" Color="#58799E" />
+                    <SolidColorBrush x:Key="AppAccentBrush" Color="#0878F9" />
+                    <SolidColorBrush x:Key="AppAccentTextBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="AppSuccessBrush" Color="#08A96B" />
+                    <SolidColorBrush x:Key="ApplicationPageBackgroundThemeBrush" Color="#DDEBF8" />
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
                     <Color x:Key="SystemAccentColor">#0A84FF</Color>
+                    <SolidColorBrush x:Key="AppSurfaceBrush" Color="#071226" />
+                    <SolidColorBrush x:Key="AppPaneBrush" Color="#061020" />
+                    <SolidColorBrush x:Key="AppCardBrush" Color="#B30B1A33" />
+                    <SolidColorBrush x:Key="AppCardStrongBrush" Color="#CC0B1A33" />
+                    <SolidColorBrush x:Key="AppBorderBrush" Color="#334D7099" />
+                    <SolidColorBrush x:Key="AppInputBrush" Color="#9908152A" />
+                    <SolidColorBrush x:Key="AppTextBrush" Color="#EAF2FF" />
+                    <SolidColorBrush x:Key="AppSecondaryTextBrush" Color="#91A9CA" />
+                    <SolidColorBrush x:Key="AppAccentBrush" Color="#0878F9" />
+                    <SolidColorBrush x:Key="AppAccentTextBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="AppSuccessBrush" Color="#00C875" />
+                    <SolidColorBrush x:Key="ApplicationPageBackgroundThemeBrush" Color="#071226" />
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
 
-            <!-- Aggressive rounding globally for all controls -->
-            <CornerRadius x:Key="ControlCornerRadius">22</CornerRadius>
-            <CornerRadius x:Key="OverlayCornerRadius">22</CornerRadius>
+            <CornerRadius x:Key="ControlCornerRadius">8</CornerRadius>
+            <CornerRadius x:Key="OverlayCornerRadius">8</CornerRadius>
 
             <!-- Font settings globally -->
             <FontFamily x:Key="ContentControlThemeFontFamily">Segoe UI Variable, Inter, San Francisco, Arial</FontFamily>

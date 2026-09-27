@@ -24,6 +24,10 @@ public sealed partial class SettingsPage : Page
         {
             var newTheme = ts.IsOn ? ElementTheme.Light : ElementTheme.Dark;
             MainPage.CurrentTheme = newTheme;
+
+            var settings = SettingsService.LoadSettings();
+            settings.Theme = newTheme == ElementTheme.Light ? "Light" : "Dark";
+            SettingsService.SaveSettings(settings);
             
             if (this.XamlRoot?.Content is FrameworkElement rootElement)
             {
