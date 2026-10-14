@@ -54,7 +54,7 @@ public partial class App : Application
         DispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
         Window.Activate();
 
-        _ = System.Threading.Tasks.Task.Run(async () => 
+        _ = System.Threading.Tasks.Task.Run(async () =>
         {
             var updater = new Services.YtDlpUpdateService();
             await updater.UpdateAsync();

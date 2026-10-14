@@ -63,14 +63,14 @@ public class VideoFormat
 
     public bool HasVideo => VideoCodec != "none" && !string.IsNullOrEmpty(VideoCodec);
     public bool HasAudio => AudioCodec != "none" && !string.IsNullOrEmpty(AudioCodec);
-    
-    public string DisplayName 
+
+    public string DisplayName
     {
         get
         {
             string res = !string.IsNullOrWhiteSpace(Resolution) ? Resolution : "N/A";
             string note = !string.IsNullOrWhiteSpace(FormatNote) ? FormatNote : res;
-            
+
             // If the note doesn't contain the resolution but resolution is valid, we can combine them,
             // or just use note if it's meaningful (like "1080p"). Often note is "1080p" and res is "1920x1080".
             // We will just use the resolution if available.

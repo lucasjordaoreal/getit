@@ -79,7 +79,10 @@ public sealed partial class HistoryPage : Page
                 if (matches.Length > 0) return matches[0];
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            AppLogger.LogException(ex, "Failed to resolve actual file path from history item");
+        }
 
         return path;
     }
@@ -106,7 +109,12 @@ public sealed partial class HistoryPage : Page
                         Process.Start("explorer.exe", dir);
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                AppLogger.LogException(ex, $"Failed to open file/folder from history item: {rawPath}");
+                NoVideoText.Text = "Não foi possível abrir o arquivo. Verifique se ele ainda existe.";
+                PlayerEmptyState.Visibility = Visibility.Visible;
+            }
         }
     }
 

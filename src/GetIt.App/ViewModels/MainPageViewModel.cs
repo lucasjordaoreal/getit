@@ -21,7 +21,7 @@ public class AudioBitrate
 public partial class MainPageViewModel : ObservableObject
 {
     private readonly IDownloadService _downloadService;
-    private CancellationTokenSource? _globalCts;
+    private readonly DownloadQueueService _queueService;
     private readonly DispatcherTimer _clipboardTimer;
     private string _lastClipboardText = string.Empty;
 
@@ -43,13 +43,14 @@ public partial class MainPageViewModel : ObservableObject
 
     public bool CanAddUrl => !IsDownloadingAll && !string.IsNullOrWhiteSpace(Url);
     public bool CanStartDownloads => !IsDownloadingAll &&
-        DownloadQueue.Any(item => item.HasMetadata && !item.IsDownloadComplete) &&
-        !DownloadQueue.Any(item => item.IsFetching);
+        DownloadQueue.Any(item => item.HasMetadata && !item.IsDownloadComplete && !item.IsDownloading) &&
+        !DownloadQueue.Any(item => item.IsFetching || item.IsDownloading);
 
     public bool IsNotDownloading => !IsDownloadingAll;
     public Microsoft.UI.Xaml.Visibility IsDownloadingVisibility => IsDownloadingAll ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
 
     public Microsoft.UI.Xaml.Visibility HasItemsVisibility => DownloadQueue.Any() ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
+    public string DownloadButtonText => DownloadQueue.Count > 1 ? "Baixar fila" : "Baixar";
     public Microsoft.UI.Xaml.Visibility IsQueueEmptyVisibility => DownloadQueue.Any() ? Microsoft.UI.Xaml.Visibility.Collapsed : Microsoft.UI.Xaml.Visibility.Visible;
 
     [ObservableProperty]
@@ -61,13 +62,15 @@ public partial class MainPageViewModel : ObservableObject
     public MainPageViewModel()
     {
         _downloadService = new DownloadService();
+        _queueService = new DownloadQueueService();
         DownloadQueue.CollectionChanged += (s, e) =>
         {
             OnPropertyChanged(nameof(HasItemsVisibility));
+            OnPropertyChanged(nameof(DownloadButtonText));
             OnPropertyChanged(nameof(IsQueueEmptyVisibility));
             OnPropertyChanged(nameof(CanStartDownloads));
         };
-        
+
         var settings = SettingsService.LoadSettings();
         DownloadFolder = settings.LastDownloadFolder;
         if (string.IsNullOrEmpty(DownloadFolder))
@@ -99,7 +102,7 @@ public partial class MainPageViewModel : ObservableObject
             if (content.Contains(StandardDataFormats.Text))
             {
                 var text = await content.GetTextAsync();
-                
+
                 // Limpa espaços e quebras de linha
                 text = text?.Trim() ?? string.Empty;
 
@@ -116,14 +119,17 @@ public partial class MainPageViewModel : ObservableObject
                 }
             }
         }
-        catch { /* Clipboard access might fail if another app is using it */ }
+        catch (Exception ex)
+        {
+            AppLogger.LogException(ex, "Clipboard access failed while auto-pasting a link");
+        }
     }
 
     private bool IsYouTubeLink(string text)
     {
         if (string.IsNullOrWhiteSpace(text)) return false;
-        
-        return text.Contains("youtube.com/watch", StringComparison.OrdinalIgnoreCase) || 
+
+        return text.Contains("youtube.com/watch", StringComparison.OrdinalIgnoreCase) ||
                text.Contains("youtu.be/", StringComparison.OrdinalIgnoreCase) ||
                text.Contains("youtube.com/shorts", StringComparison.OrdinalIgnoreCase);
     }
@@ -154,6 +160,12 @@ public partial class MainPageViewModel : ObservableObject
             return;
         }
 
+        if (DownloadQueue.Any(item => string.Equals(item.Url, link, StringComparison.OrdinalIgnoreCase)))
+        {
+            InputError = "Este link já foi adicionado à fila.";
+            return;
+        }
+
         Url = string.Empty;
         InputError = string.Empty;
 
@@ -163,7 +175,8 @@ public partial class MainPageViewModel : ObservableObject
         {
             if (args.PropertyName is nameof(DownloadItemViewModel.IsFetching) or
                 nameof(DownloadItemViewModel.HasMetadata) or
-                nameof(DownloadItemViewModel.IsDownloadComplete))
+                nameof(DownloadItemViewModel.IsDownloadComplete) or
+                nameof(DownloadItemViewModel.IsDownloading))
             {
                 OnPropertyChanged(nameof(CanStartDownloads));
             }
@@ -176,8 +189,7 @@ public partial class MainPageViewModel : ObservableObject
     [RelayCommand]
     private void ClearQueue()
     {
-        _globalCts?.Cancel();
-        DownloadQueue.Clear();
+        _queueService.ClearQueue(DownloadQueue);
         IsDownloadingAll = false;
     }
 
@@ -205,35 +217,23 @@ public partial class MainPageViewModel : ObservableObject
     [RelayCommand]
     private async Task DownloadAllAsync()
     {
-        if (!DownloadQueue.Any()) return;
-
-        IsDownloadingAll = true;
-        foreach (var item in DownloadQueue)
+        if (!DownloadQueue.Any())
         {
-            item.IsQueueLocked = true;
+            return;
         }
 
-        _globalCts?.Cancel();
-        _globalCts = new CancellationTokenSource();
+        if (IsDownloadingAll)
+        {
+            return;
+        }
 
+        IsDownloadingAll = true;
         try
         {
-            foreach (var item in DownloadQueue.ToList())
-            {
-                if (_globalCts.Token.IsCancellationRequested) break;
-                
-                if (item.HasMetadata && !item.IsDownloadComplete)
-                {
-                    await item.StartDownloadAsync(DownloadFolder, _globalCts.Token);
-                }
-            }
+            await _queueService.DownloadAllAsync(DownloadQueue, DownloadFolder);
         }
         finally
         {
-            foreach (var item in DownloadQueue)
-            {
-                item.IsQueueLocked = false;
-            }
             IsDownloadingAll = false;
         }
     }
@@ -241,8 +241,7 @@ public partial class MainPageViewModel : ObservableObject
     [RelayCommand]
     private void CancelAll()
     {
-        _globalCts?.Cancel();
         IsDownloadingAll = false;
+        _queueService.CancelAll(DownloadQueue);
     }
 }
-

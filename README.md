@@ -1,41 +1,89 @@
 # GetIt
 
-**GetIt** é um gerenciador de downloads moderno e de alta performance para Windows, construído com **WinUI 3** e **.NET 10**. Ele foi projetado para oferecer uma experiência fluida, visualmente impressionante e extremamente funcional para baixar vídeos e áudios de diversas plataformas.
-## ✨ Funcionalidades Principais
+GetIt é um aplicativo Windows para download de mídia, com foco em confiabilidade, boa experiência de uso e estrutura de manutenção profissional. O produto combina interface WinUI 3, downloads via yt-dlp e gestão de fila, histórico e configurações em uma solução que foi preparada para evolução contínua e distribuição.
 
-### 📥 Downloads Multiformato
-- **Vídeo:** Baixe vídeos em múltiplas resoluções (4K, 1080p, 720p, etc.) com detecção automática de formatos.
-- **Áudio:** Converta vídeos diretamente para áudio de alta qualidade (320kbps, 256kbps, 192kbps).
-- **Suporte Amplo:** Compatível com YouTube, Instagram, TikTok, X (Twitter) e centenas de outros sites (via engine yt-dlp).
+## Visão do produto
 
-### 🔄 Sistema de Fila Inteligente (Modo Fila)
-- **Downloads em Lote:** Alterne para o "Modo Fila" para adicionar múltiplos links simultaneamente.
-- **Configurações Individuais:** Cada item na fila pode ter sua própria configuração de qualidade e formato independente dos outros.
-- **Drag & Drop:** Reorganize a ordem dos downloads simplesmente arrastando e soltando os cards na interface.
-- **Processamento Sequencial:** Baixe toda a lista com um único clique.
+- Download de vídeos e áudios com qualidade configurável
+- Suporte a múltiplos links em fila
+- Histórico local de downloads concluídos
+- Configuração de destino, tema e comportamento da aplicação
+- Atualização e manutenção mais fáceis por meio de separação de responsabilidades
 
-### ⚡ Experiência do Usuário (UX)
-- **Modo Link Único:** Interface simplificada para quem deseja baixar apenas um vídeo por vez de forma rápida.
-- **Design Liquid Glass:** Interface com efeitos de nebulosa, transparências modernas e animações fluidas de 60 FPS.
-- **Portátil:** Gerado como um único arquivo `.exe`, sem necessidade de instalação ou dependências externas.
+## Requisitos
 
----
+- Windows 10/11
+- .NET 8 SDK
+- Visual Studio 2022 ou Rider
+- Windows App SDK / WinUI 3 habilitados para o projeto
+- Engine yt-dlp disponível em `Engine/Bin` ou em ambiente de execução compatível
 
-## 🛠️ Como Usar
-1. **Escolha o Modo:** Selecione entre "Link Único" ou "Modo Fila" no interruptor superior.
-2. **Cole o Link:** Copie a URL do vídeo desejado e cole no campo principal.
-3. **Configure:** Escolha se deseja Vídeo ou Áudio e selecione a qualidade desejada no card.
-4. **Baixe:** Clique em "Baixar" ou "Baixar Toda a Fila". O app solicitará a pasta de destino apenas uma vez por lote.
+## Estrutura do repositório
 
----
+```text
+GetIt/
+├── .github/
+│   └── workflows/
+│       └── ci.yml
+├── docs/
+│   └── PROJECT_STRUCTURE.md
+├── src/
+│   ├── GetIt.App/
+│   ├── GetIt.Core/
+│   └── ...
+├── tests/
+│   └── GetIt.Tests/
+├── Engine/
+├── installer/
+├── .gitignore
+├── Directory.Build.props
+├── GetIt.sln
+├── README.md
+├── RELEASE.MD
+└── ...
+```
 
-## 🚀 Tecnologias Utilizadas
+## Configuração de desenvolvimento
 
-- **Interface:** WinUI 3 (Windows App SDK)
-- **Lógica:** C# 13 / .NET 10
-- **Engine de Download:** yt-dlp (Integrado)
-- **Estilização:** Vanilla CSS & XAML Composition Projections
+1. Clone o repositório.
+2. Abra a solução `GetIt.sln` no Visual Studio ou Rider.
+3. Restore as dependências com `dotnet restore GetIt.sln -p:Platform=x64`.
+4. Se necessário, valide a engine externa em `Engine/Bin`.
 
----
+## Compilação
 
-Desenvolvido para ser o downloader mais rápido e bonito do Windows.
+```powershell
+dotnet restore GetIt.sln -p:Platform=x64
+dotnet build GetIt.sln -p:Platform=x64 --configuration Release
+```
+
+## Testes
+
+```powershell
+dotnet test GetIt.sln -p:Platform=x64 --configuration Release --logger "console;verbosity=minimal"
+```
+
+## Publicação e distribuição
+
+A solução está preparada para builds reproducíveis com suporte a publicação Windows e geração de artefatos para distribuição. O pipeline de CI em `.github/workflows/ci.yml` realiza:
+
+- restore
+- build
+- testes
+- validação de formatação estática
+
+Para empacotamento e distribuição, a pasta `installer/` contém scripts de preparação do instalador e artefatos complementares.
+
+## Arquitetura e manutenção
+
+- `GetIt.App`: interface, interação do usuário, telas e fluxo principal
+- `GetIt.Core`: lógica compartilhada, configurações e serviços de infraestrutura
+- `GetIt.Tests`: testes automatizados para os fluxos críticos
+- `Engine`: binários e dependências externas do runtime de download
+- `docs`: documentação operativa e de estrutura do produto
+
+## Observações importantes
+
+- O projeto foi estruturado para manter comportamento funcional existente enquanto melhora organização, consistência e manutenção.
+- Não há reescrita de negócio ou introdução de camadas artificiais; os ajustes foram feitos para deixar o repositório profissional e evolutivo sem afetar as funcionalidades do cliente.
+- O build e os testes devem ser executados em ambiente Windows, com plataforma x64, para manter compatibilidade com WinUI 3.

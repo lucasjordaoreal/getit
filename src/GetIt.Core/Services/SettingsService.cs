@@ -1,7 +1,7 @@
 using System;
 using System.IO;
-using System.Text.Json;
 using System.Text.Encodings.Web;
+using System.Text.Json;
 using Microsoft.Win32;
 
 namespace GetIt_App.Services;
@@ -20,7 +20,7 @@ public class AppSettings
 
 public static class SettingsService
 {
-    private static readonly string SettingsFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "UltraDownloader", "settings.json");
+    private static readonly string SettingsFilePath = Path.Combine(AppInfo.AppDataDirectory, "settings.json");
 
     public static AppSettings LoadSettings()
     {
@@ -32,11 +32,14 @@ public static class SettingsService
                 return JsonSerializer.Deserialize<AppSettings>(json) ?? new AppSettings();
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            AppLogger.LogException(ex, "Failed to load settings");
+        }
 
-        return new AppSettings 
-        { 
-            LastDownloadFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads") 
+        return new AppSettings
+        {
+            LastDownloadFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads")
         };
     }
 
@@ -47,14 +50,17 @@ public static class SettingsService
             var dir = Path.GetDirectoryName(SettingsFilePath);
             if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
 
-            var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions 
-            { 
+            var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions
+            {
                 WriteIndented = true,
                 Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
             });
             File.WriteAllText(SettingsFilePath, json);
         }
-        catch { }
+        catch (Exception ex)
+        {
+            AppLogger.LogException(ex, "Failed to save settings");
+        }
     }
 
     /// <summary>
@@ -70,9 +76,11 @@ public static class SettingsService
             if (key?.GetValue("AppsUseLightTheme") is int value && value == 1)
                 return "Light";
         }
-        catch { }
+        catch (Exception ex)
+        {
+            AppLogger.LogException(ex, "Failed to read Windows theme");
+        }
 
         return "Dark";
     }
 }
-

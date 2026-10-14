@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,7 +13,7 @@ namespace GetIt_App.Services;
 public interface IDownloadService
 {
     Task<VideoMetadata?> FetchMetadataAsync(string url, CancellationToken cancellationToken = default);
-    Task<string?> DownloadAsync(string url, string formatId, bool isAudioOnly, string audioBitrate, string videoExt, string downloadDir, IProgress<DownloadProgressInfo> progress, CancellationToken cancellationToken = default);
+    Task<string?> DownloadAsync(string url, string formatId, bool isAudioOnly, string audioBitrate, string videoExt, string downloadDir, IProgress<DownloadProgressInfo> progress, CancellationToken cancellationToken = default, bool overwriteExistingFiles = false, string? titleHint = null);
 }
 
 public partial class DownloadService : IDownloadService
@@ -49,7 +50,7 @@ public partial class DownloadService : IDownloadService
                 return $"{(bytesPerSecond / 1000000):F2} MB/s";
             if (bytesPerSecond >= 1000)
                 return $"{(bytesPerSecond / 1000):F2} KB/s";
-            
+
             return $"{bytesPerSecond:F0} B/s";
         }
         return speedStr;
@@ -71,15 +72,15 @@ public partial class DownloadService : IDownloadService
                 UseShellExecute = false,
                 CreateNoWindow = true
             };
-            
+
             using var process = Process.Start(psi);
             if (process != null)
             {
                 var output = await process.StandardOutput.ReadToEndAsync();
                 await process.WaitForExitAsync();
-                
+
                 output = output.ToLowerInvariant();
-                
+
                 if (output.Contains("nvidia"))
                     _cachedGpuEncoder = "h264_nvenc";
                 else if (output.Contains("amd") || output.Contains("radeon"))
@@ -101,6 +102,136 @@ public partial class DownloadService : IDownloadService
     private readonly string _binPath;
     private readonly string _ytdlpPath;
     private readonly string _ffmpegPath;
+
+    private static string GetSafeExecutablePath(string candidateDirectory, string executableName)
+    {
+        if (string.IsNullOrWhiteSpace(candidateDirectory))
+        {
+            return string.Empty;
+        }
+
+        try
+        {
+            var fullDirectory = Path.GetFullPath(candidateDirectory);
+            var candidatePath = Path.Combine(fullDirectory, executableName);
+            if (File.Exists(candidatePath))
+            {
+                return candidatePath;
+            }
+        }
+        catch (Exception ex)
+        {
+            AppLogger.LogException(ex, $"Failed to resolve executable candidate for {executableName}");
+        }
+
+        return string.Empty;
+    }
+
+    private static bool IsExecutableAvailable(string executablePath)
+    {
+        if (string.IsNullOrWhiteSpace(executablePath))
+        {
+            return false;
+        }
+
+        try
+        {
+            return File.Exists(executablePath);
+        }
+        catch (Exception ex)
+        {
+            AppLogger.LogException(ex, $"Failed to check existence of executable: {executablePath}");
+            return false;
+        }
+    }
+
+    private static string NormalizePath(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            return string.Empty;
+
+        var cleaned = path.Trim();
+        if (cleaned.StartsWith('"') && cleaned.EndsWith('"') && cleaned.Length >= 2)
+            cleaned = cleaned[1..^1];
+
+        return cleaned;
+    }
+
+    private static string SanitizeFileName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            return "download";
+
+        var invalidChars = Path.GetInvalidFileNameChars();
+        var sanitized = new string(name.Select(ch => invalidChars.Contains(ch) ? '_' : ch).ToArray()).Trim();
+        sanitized = string.Join(" ", sanitized.Split(new[] { ' ', '\r', '\n', '\t' }, StringSplitOptions.RemoveEmptyEntries));
+
+        return string.IsNullOrWhiteSpace(sanitized) ? "download" : sanitized;
+    }
+
+    private static string GetFallbackTargetPath(string downloadDir, string extension, string? titleHint)
+    {
+        var targetDir = Path.GetFullPath(downloadDir);
+        var safeTitle = SanitizeFileName(titleHint ?? "download");
+        var safeExt = string.IsNullOrWhiteSpace(extension) ? "mp4" : extension.TrimStart('.');
+        return Path.Combine(targetDir, $"{safeTitle}.{safeExt}");
+    }
+
+    private static void ValidateDownloadDirectory(string downloadDir)
+    {
+        if (string.IsNullOrWhiteSpace(downloadDir))
+            throw new DirectoryNotFoundException("A pasta de destino não foi informada.");
+
+        var fullPath = Path.GetFullPath(downloadDir);
+        if (File.Exists(fullPath))
+            throw new IOException($"O caminho de destino '{fullPath}' é um arquivo e não uma pasta.");
+
+        Directory.CreateDirectory(fullPath);
+
+        var probePath = Path.Combine(fullPath, $".{AppInfo.ProductName}_write_test_{Guid.NewGuid():N}.tmp");
+        try
+        {
+            File.WriteAllText(probePath, "write-test");
+        }
+        catch (Exception ex)
+        {
+            throw new IOException($"Não foi possível gravar na pasta de destino '{fullPath}'.", ex);
+        }
+        finally
+        {
+            if (File.Exists(probePath))
+            {
+                File.Delete(probePath);
+            }
+        }
+    }
+
+    private static string? ResolveExistingFilePath(string? detectedPath, string downloadDir, string extension, string? titleHint)
+    {
+        var normalized = NormalizePath(detectedPath);
+        if (!string.IsNullOrWhiteSpace(normalized) && File.Exists(normalized))
+            return normalized;
+
+        if (string.IsNullOrWhiteSpace(normalized))
+        {
+            var fallbackPath = GetFallbackTargetPath(downloadDir, extension, titleHint);
+            if (File.Exists(fallbackPath))
+                return fallbackPath;
+
+            var files = Directory.Exists(downloadDir)
+                ? Directory.GetFiles(downloadDir)
+                : Array.Empty<string>();
+
+            var candidates = files
+                .Where(file => string.Equals(Path.GetExtension(file), $".{extension.TrimStart('.')}", StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(file => File.GetLastWriteTimeUtc(file))
+                .ToList();
+
+            return candidates.FirstOrDefault();
+        }
+
+        return null;
+    }
 
     public static string ResolveBinPath()
     {
@@ -150,13 +281,32 @@ public partial class DownloadService : IDownloadService
 
     public DownloadService()
     {
-        _binPath = ResolveBinPath();
-        _ytdlpPath = Path.Combine(_binPath, "yt-dlp.exe");
-        _ffmpegPath = Path.Combine(_binPath, "ffmpeg.exe");
+        var resolvedBin = ResolveBinPath();
+        var ytdlpPath = GetSafeExecutablePath(resolvedBin, "yt-dlp.exe");
+        var ffmpegPath = GetSafeExecutablePath(resolvedBin, "ffmpeg.exe");
+
+        if (!IsExecutableAvailable(ytdlpPath))
+        {
+            throw new FileNotFoundException("yt-dlp.exe não foi encontrado. Verifique a pasta de engine do aplicativo.", "yt-dlp.exe");
+        }
+
+        if (!IsExecutableAvailable(ffmpegPath))
+        {
+            throw new FileNotFoundException("ffmpeg.exe não foi encontrado. Verifique a pasta de engine do aplicativo.", "ffmpeg.exe");
+        }
+
+        _binPath = resolvedBin;
+        _ytdlpPath = ytdlpPath;
+        _ffmpegPath = ffmpegPath;
     }
 
     private ProcessStartInfo CreateProcessStartInfo(string arguments)
     {
+        if (!IsExecutableAvailable(_ytdlpPath))
+        {
+            throw new FileNotFoundException("O executável yt-dlp.exe não está disponível para iniciar o download.", _ytdlpPath);
+        }
+
         var psi = new ProcessStartInfo
         {
             FileName = _ytdlpPath,
@@ -173,7 +323,10 @@ public partial class DownloadService : IDownloadService
         psi.Environment["PYTHONIOENCODING"] = "utf-8";
         psi.Environment["PYTHONUTF8"] = "1";
         // Add bin path to PATH so yt-dlp can find node.exe or deno.exe
-        psi.Environment["PATH"] = _binPath + ";" + Environment.GetEnvironmentVariable("PATH");
+        var currentPath = Environment.GetEnvironmentVariable("PATH") ?? string.Empty;
+        psi.Environment["PATH"] = string.IsNullOrWhiteSpace(_binPath)
+            ? currentPath
+            : _binPath + ";" + currentPath;
         return psi;
     }
 
@@ -186,7 +339,7 @@ public partial class DownloadService : IDownloadService
 
         var readOutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
         var readErrTask = process.StandardError.ReadToEndAsync(cancellationToken);
-        
+
         await Task.WhenAll(readOutTask, readErrTask);
         await process.WaitForExitAsync(cancellationToken);
 
@@ -209,9 +362,22 @@ public partial class DownloadService : IDownloadService
         }
     }
 
-    public async Task<string?> DownloadAsync(string url, string formatId, bool isAudioOnly, string audioBitrate, string videoExt, string downloadDir, IProgress<DownloadProgressInfo> progress, CancellationToken cancellationToken = default)
+    public async Task<string?> DownloadAsync(string url, string formatId, bool isAudioOnly, string audioBitrate, string videoExt, string downloadDir, IProgress<DownloadProgressInfo> progress, CancellationToken cancellationToken = default, bool overwriteExistingFiles = false, string? titleHint = null)
     {
-        Directory.CreateDirectory(downloadDir);
+        ValidateDownloadDirectory(downloadDir);
+
+        string targetExtension = isAudioOnly ? "mp3" : (string.IsNullOrWhiteSpace(videoExt) ? "mp4" : videoExt.TrimStart('.'));
+        string expectedPath = GetFallbackTargetPath(downloadDir, targetExtension, titleHint);
+
+        if (File.Exists(expectedPath) && !overwriteExistingFiles)
+        {
+            throw new IOException($"Arquivo já existe e não será sobrescrito: {expectedPath}");
+        }
+
+        if (overwriteExistingFiles && File.Exists(expectedPath))
+        {
+            File.Delete(expectedPath);
+        }
 
         string formatArg;
         string postprocessorArgs = string.Empty;
@@ -225,10 +391,10 @@ public partial class DownloadService : IDownloadService
         else
         {
             string ext = string.IsNullOrEmpty(videoExt) ? "mp4" : videoExt;
-            string formatSelector = string.IsNullOrEmpty(formatId) 
-                ? "\"bestvideo+bestaudio[format_note*=original]/bestvideo+bestaudio/best\"" 
+            string formatSelector = string.IsNullOrEmpty(formatId)
+                ? "\"bestvideo+bestaudio[format_note*=original]/bestvideo+bestaudio/best\""
                 : $"\"{formatId}+bestaudio[format_note*=original]/{formatId}+bestaudio/best\"";
-            
+
             if (ext.Equals("mov", StringComparison.OrdinalIgnoreCase))
             {
                 formatArg = $"-f {formatSelector} --recode-video {ext}";
@@ -250,7 +416,14 @@ public partial class DownloadService : IDownloadService
 
         await using var registration = cancellationToken.Register(() =>
         {
-            try { if (!process.HasExited) process.Kill(); } catch { }
+            try
+            {
+                if (!process.HasExited) process.Kill();
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogException(ex, "Failed to cancel download process");
+            }
         });
 
         process.Start();
@@ -265,7 +438,7 @@ public partial class DownloadService : IDownloadService
             while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
             {
                 if (cancellationToken.IsCancellationRequested) break;
-                
+
                 var detailedMatch = ProgressDetailedRegex().Match(line);
                 if (detailedMatch.Success && double.TryParse(detailedMatch.Groups["percent"].Value, System.Globalization.CultureInfo.InvariantCulture, out double p1))
                 {
@@ -321,28 +494,43 @@ public partial class DownloadService : IDownloadService
                 var destMatch = DestinationRegex().Match(line);
                 if (destMatch.Success)
                 {
-                    finalPath = destMatch.Groups["path"].Value.Trim();
+                    finalPath = NormalizePath(destMatch.Groups["path"].Value);
                 }
 
                 var mergerMatch = MergerRegex().Match(line);
                 if (mergerMatch.Success)
                 {
-                    finalPath = mergerMatch.Groups["path"].Value.Trim();
+                    finalPath = NormalizePath(mergerMatch.Groups["path"].Value);
                 }
             }
         }, cancellationToken);
 
+        var readErrorTask = process.StandardError.ReadToEndAsync(cancellationToken);
+
         await process.WaitForExitAsync(cancellationToken);
         await readOutputTask;
+        var errorOutput = await readErrorTask;
         cancellationToken.ThrowIfCancellationRequested();
 
         if (process.ExitCode != 0)
         {
-            var err = await process.StandardError.ReadToEndAsync(cancellationToken);
-            throw new Exception($"Erro (Code {process.ExitCode}): {err}");
+            var errorMessage = string.IsNullOrWhiteSpace(errorOutput)
+                ? $"O processo de download terminou com código {process.ExitCode}."
+                : $"Erro (Code {process.ExitCode}): {errorOutput.Trim()}";
+            throw new InvalidOperationException(errorMessage);
         }
 
-        return finalPath;
+        var resolvedPath = ResolveExistingFilePath(finalPath, downloadDir, targetExtension, titleHint);
+        if (!string.IsNullOrWhiteSpace(resolvedPath))
+            return resolvedPath;
+
+        if (!string.IsNullOrWhiteSpace(finalPath) && File.Exists(finalPath))
+            return finalPath;
+
+        var fallback = GetFallbackTargetPath(downloadDir, targetExtension, titleHint);
+        if (File.Exists(fallback))
+            return fallback;
+
+        throw new FileNotFoundException($"Não foi possível localizar o arquivo final baixado em '{downloadDir}'.", downloadDir);
     }
 }
-

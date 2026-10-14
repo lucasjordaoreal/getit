@@ -1,17 +1,17 @@
 # Script para publicar e gerar o instalador do GetIt automaticamente
 $ErrorActionPreference = "Stop"
 
-$repoRoot = (Get-Item $PSScriptRoot).Parent.FullName
+$repoRoot = (Get-Item (Join-Path $PSScriptRoot "..\..")).FullName
 Set-Location $repoRoot
 
 # 1. Obter a versão definida no GetIt.App.csproj
-$csprojPath = Join-Path $repoRoot "GetIt.App\GetIt.App.csproj"
+$csprojPath = Join-Path $repoRoot "src\GetIt.App\GetIt.App.csproj"
 [xml]$csproj = Get-Content $csprojPath
 $version = $csproj.Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
 if (-not $version) { $version = "1.0.0" }
 
 Write-Host "=== Compilando e Publicando GetIt v$version (Release x64) ===" -ForegroundColor Cyan
-dotnet publish GetIt.App/GetIt.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -o "GetIt.App/bin/Release/net10.0-windows10.0.26100.0/win-x64/publish"
+dotnet publish "src\GetIt.App\GetIt.App.csproj" -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -o "src\GetIt.App\bin\Release\net10.0-windows10.0.26100.0\win-x64\publish"
 
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Falha ao publicar o projeto."
@@ -56,5 +56,5 @@ if ($isccPath) {
     Write-Host "Para gerar o executável do instalador (.exe):" -ForegroundColor Cyan
     Write-Host "1. Baixe o Inno Setup gratuitamente em: https://jrsoftware.org/isdl.php" -ForegroundColor Gray
     Write-Host "2. Instale e execute novamente este script:" -ForegroundColor Gray
-    Write-Host "   powershell installer\build_installer.ps1`n" -ForegroundColor Yellow
+    Write-Host "   powershell deploy\installer\build_installer.ps1`n" -ForegroundColor Yellow
 }

@@ -7,6 +7,7 @@ using System.Net.Http;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
+using GetIt_App;
 
 namespace GetIt_App.Services;
 
@@ -30,7 +31,7 @@ public class GitHubAsset
 
 public class UpdateService
 {
-    public const string CurrentVersion = "0.0.6";
+    public static Version CurrentVersion => AppInfo.CurrentVersion;
     private const string GitHubApiUrl = "https://api.github.com/repos/lucasjordaoreal/getit/releases/latest";
 
     public static async Task<GitHubRelease?> CheckForUpdatesAsync()
@@ -38,8 +39,8 @@ public class UpdateService
         try
         {
             using var client = new HttpClient();
-            client.DefaultRequestHeaders.Add("User-Agent", "UltraDownloader-UpdateService");
-            
+            client.DefaultRequestHeaders.Add("User-Agent", $"{AppInfo.ProductName}-UpdateService");
+
             var response = await client.GetAsync(GitHubApiUrl);
             if (!response.IsSuccessStatusCode) return null;
 
@@ -50,7 +51,7 @@ public class UpdateService
             {
 
                 var latestVersion = release.TagName.TrimStart('v', 'V');
-                var currentVersion = CurrentVersion.TrimStart('v', 'V');
+                var currentVersion = CurrentVersion.ToString();
 
                 if (Version.TryParse(latestVersion, out var latest) && Version.TryParse(currentVersion, out var current))
                 {
@@ -59,7 +60,7 @@ public class UpdateService
                         return release;
                     }
                 }
-                else if (release.TagName != CurrentVersion)
+                else if (!string.Equals(release.TagName, currentVersion, StringComparison.OrdinalIgnoreCase))
                 {
                     // Fallback to string comparison if parsing fails
                     return release;
@@ -78,7 +79,7 @@ public class UpdateService
     {
         try
         {
-            var tempDir = Path.Combine(Path.GetTempPath(), "UltraDownloaderUpdate");
+            var tempDir = Path.Combine(Path.GetTempPath(), $"{AppInfo.ProductName}Update");
             if (Directory.Exists(tempDir))
             {
                 Directory.Delete(tempDir, true);
@@ -90,7 +91,7 @@ public class UpdateService
             // 1. Download the ZIP file
             using (var client = new HttpClient())
             {
-                client.DefaultRequestHeaders.Add("User-Agent", "UltraDownloader-UpdateService");
+                client.DefaultRequestHeaders.Add("User-Agent", $"{AppInfo.ProductName}-UpdateService");
                 var response = await client.GetAsync(downloadUrl);
                 response.EnsureSuccessStatusCode();
 
@@ -120,7 +121,7 @@ public class UpdateService
             if (currentDir == null) return;
 
             var batPath = Path.Combine(tempDir, "update.bat");
-            
+
             // O script batch aguarda 2 segundos, copia os arquivos substituindo,
             // reinicia o app e deleta a si mesmo e a pasta temp.
             var batContent = $@"

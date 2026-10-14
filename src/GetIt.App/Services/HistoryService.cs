@@ -4,6 +4,7 @@ using System.IO;
 using System.Text.Json;
 using System.Text.Encodings.Web;
 using System.Threading.Tasks;
+using GetIt_App;
 
 namespace GetIt_App.Services;
 
@@ -18,7 +19,7 @@ public class HistoryItem
 
 public static class HistoryService
 {
-    private static readonly string HistoryFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "UltraDownloader", "history.json");
+    private static readonly string HistoryFilePath = Path.Combine(AppInfo.AppDataDirectory, "history.json");
 
     public static async Task<List<HistoryItem>> LoadHistoryAsync()
     {
@@ -30,8 +31,9 @@ public static class HistoryService
             var json = await File.ReadAllTextAsync(HistoryFilePath);
             return JsonSerializer.Deserialize<List<HistoryItem>>(json) ?? new List<HistoryItem>();
         }
-        catch
+        catch (Exception ex)
         {
+            AppLogger.LogException(ex, "Failed to load history");
             return new List<HistoryItem>();
         }
     }
@@ -50,7 +52,10 @@ public static class HistoryService
             });
             await File.WriteAllTextAsync(HistoryFilePath, json);
         }
-        catch { }
+        catch (Exception ex)
+        {
+            AppLogger.LogException(ex, "Failed to save history");
+        }
     }
 
     public static async Task AddHistoryItemAsync(HistoryItem item)
@@ -72,7 +77,10 @@ public static class HistoryService
                 await File.WriteAllTextAsync(HistoryFilePath, "[]");
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            AppLogger.LogException(ex, "Failed to clear history");
+        }
     }
 }
 

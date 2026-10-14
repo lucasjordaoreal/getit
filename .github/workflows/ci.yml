@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore GetIt.sln -p:Platform=x64
+
+      - name: Build solution
+        run: dotnet build GetIt.sln --configuration Release --no-restore -p:Platform=x64
+
+      - name: Run tests
+        run: dotnet test GetIt.sln --configuration Release --no-build -p:Platform=x64 --logger "trx;LogFileName=test-results.trx"
+
+      - name: Static analysis
+        run: dotnet format GetIt.sln --verify-no-changes --severity warn --verbosity minimal

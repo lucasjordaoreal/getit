@@ -12,12 +12,17 @@ public class YtDlpUpdateService
     public YtDlpUpdateService()
     {
         var binPath = DownloadService.ResolveBinPath();
-        _ytdlpPath = Path.Combine(binPath, "yt-dlp.exe");
+        var candidate = Path.Combine(binPath, "yt-dlp.exe");
+        _ytdlpPath = File.Exists(candidate) ? candidate : string.Empty;
     }
 
     public async Task<bool> UpdateAsync()
     {
-        if (!File.Exists(_ytdlpPath)) return false;
+        if (string.IsNullOrWhiteSpace(_ytdlpPath) || !File.Exists(_ytdlpPath))
+        {
+            AppLogger.LogWarning("yt-dlp executable not found; update skipped.");
+            return false;
+        }
 
         try
         {

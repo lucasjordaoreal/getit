@@ -1,30 +1,135 @@
-# .gitignore for GetIt
+# =============================
+# GetIt - .gitignore
+# =============================
 
-# User-specified exclusion
-Engine/Bin/
+# Built products and packing artifacts
+[Bb]in/
+[Oo]bj/
+[Pp]ublish/
+[Dd]ist/
+artifacts/
+*.exe
+*.dll
+*.appx
+*.appxbundle
+*.msix
+*.msixupload
+*.msixsym
+*.msi
+*.zip
+*.nupkg
+*.snupkg
+*.tar.gz
+*.7z
 
-# Build artifacts
-bin/
-obj/
-publish/
-
-# IDE files
+# Windows / Visual Studio / WinUI
 .vs/
-*.user
+.vscode/
+.idea/
 *.suo
+*.user
 *.userosscache
 *.sln.docstates
+*.VC.db
+*.VC.VC.opendb
+*.code-workspace
+*.pfx
+*.pem
+*.csr
+*.key
+*.cer
+*.publish.xml
+*.pubxml.user
 
-# Visual Studio Code
-.vscode/
+# .NET / C# / Rider
+*.log
+*.tlog
+*.tmp
+*.tmpproj
+*.pidb
+*.svclog
+*.coverage
+*.coveragexml
+*.opencover.xml
+*.trx
+*.testresult
+*.psess
+*.vsp
+*.vspx
+*.sap
+*.cache
+*.editorconfig.user
+*.orig
+*.rej
 
-# Project specific
-.gemini/
-.antigravity/
+# NuGet
+packages/
+*.nupkg
+*.snupkg
+*.nuspec
+*.psmdcp
+project.lock.json
 
-# OS files
+# Crash / diagnostics / local runtime artifacts
+[Dd]ebug/
+[Rr]elease/
+ipch/
+TestResults/
+BenchmarkDotNet.Artifacts/
+*.dmp
+*.hdmp
+*.mdmp
+*.stackdump
+
+# Local environment and generated content
+.env
+.env.*
+local.settings.json
+secrets.json
+*.local
+*.local.json
+*.bak
+*.old
+*.swp
+*.swo
+
+# OS-generated files
 Thumbs.db
 Desktop.ini
+$RECYCLE.BIN/
 
-# Documentation
-RELEASE.MD
+# Engine / external dependency output
+Engine/Bin/
+**/Engine/Bin/
+**/tools/**/Bin/
+
+# Project-specific generated outputs
+installer/**/*.exe
+installer/**/*.msi
+installer/**/*.zip
+installer/**/*.log
+
+# Keep source, assets, solution, and project metadata tracked
+!README.md
+!RELEASE.MD
+!Directory.Build.props
+!GetIt.sln
+!**/*.cs
+!**/*.xaml
+!**/*.axaml
+!**/*.csproj
+!**/*.props
+!**/*.targets
+!**/*.config
+!**/*.json
+!**/*.ico
+!**/*.png
+!**/*.jpg
+!**/*.jpeg
+!**/*.svg
+!**/*.woff
+!**/*.ttf
+!**/*.manifest
+!**/*.appxmanifest
+!**/*.resw
+!**/*.xml

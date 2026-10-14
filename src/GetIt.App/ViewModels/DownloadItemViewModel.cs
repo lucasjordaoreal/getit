@@ -1,0 +1,482 @@
+using System;
+using System.Collections.ObjectModel;
+using System.IO;
+using System.Linq;
+using System.Net.Http;
+using System.Threading;
+using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using GetIt_App.Models;
+using GetIt_App.Services;
+using Microsoft.UI.Xaml.Media.Imaging;
+using Windows.Storage.Streams;
+
+namespace GetIt_App.ViewModels;
+
+public partial class DownloadItemViewModel : ObservableObject
+{
+    private static readonly HttpClient ThumbnailHttpClient = CreateThumbnailHttpClient();
+    private readonly IDownloadService _downloadService;
+    private readonly SemaphoreSlim _downloadLock = new(1, 1);
+    private CancellationTokenSource? _cts;
+    private int _thumbnailRequestId;
+
+    public string Url { get; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsNotBusy))]
+    [NotifyPropertyChangedFor(nameof(IsFetchingVisibility))]
+    public partial bool IsFetching { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsNotBusy))]
+    [NotifyPropertyChangedFor(nameof(IsNotDownloading))]
+    [NotifyPropertyChangedFor(nameof(IsDownloadingVisibility))]
+    public partial bool IsDownloading { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanEditQueue))]
+    public partial bool IsQueueLocked { get; set; }
+
+    public bool IsNotBusy => !IsFetching && !IsDownloading;
+    public bool IsNotDownloading => !IsDownloading;
+    public bool CanEditQueue => !IsDownloading && !IsQueueLocked;
+
+    public Microsoft.UI.Xaml.Visibility IsFetchingVisibility => IsFetching ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
+    public Microsoft.UI.Xaml.Visibility IsDownloadingVisibility => IsDownloading ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasMetadata))]
+    [NotifyPropertyChangedFor(nameof(HasMetadataVisibility))]
+    public partial VideoMetadata? Metadata { get; set; }
+
+    [ObservableProperty]
+    public partial BitmapImage? ThumbnailImage { get; set; }
+
+    public bool HasMetadata => Metadata != null;
+    public Microsoft.UI.Xaml.Visibility HasMetadataVisibility => HasMetadata ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
+
+    partial void OnMetadataChanged(VideoMetadata? value)
+    {
+        var requestId = Interlocked.Increment(ref _thumbnailRequestId);
+        ThumbnailImage = null;
+
+        if (!Uri.TryCreate(value?.Thumbnail, UriKind.Absolute, out var thumbnailUri) ||
+            (thumbnailUri.Scheme != Uri.UriSchemeHttp && thumbnailUri.Scheme != Uri.UriSchemeHttps))
+        {
+            return;
+        }
+
+        _ = LoadThumbnailAsync(value, thumbnailUri, requestId);
+    }
+
+    private static HttpClient CreateThumbnailHttpClient()
+    {
+        var client = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) GetIt/1.0");
+        return client;
+    }
+
+    private async Task LoadThumbnailAsync(VideoMetadata? metadata, Uri thumbnailUri, int requestId)
+    {
+        foreach (var candidate in GetThumbnailCandidates(metadata, thumbnailUri))
+        {
+            try
+            {
+                var imageBytes = await ThumbnailHttpClient.GetByteArrayAsync(candidate);
+                using var stream = new InMemoryRandomAccessStream();
+                using (var writer = new DataWriter(stream))
+                {
+                    writer.WriteBytes(imageBytes);
+                    await writer.StoreAsync();
+                    await writer.FlushAsync();
+                    writer.DetachStream();
+                }
+
+                stream.Seek(0);
+                var image = new BitmapImage();
+                await image.SetSourceAsync(stream);
+
+                if (requestId == Volatile.Read(ref _thumbnailRequestId))
+                {
+                    ThumbnailImage = image;
+                }
+
+                return;
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogWarning($"Failed to load thumbnail from {candidate}: {ex.Message}");
+            }
+        }
+
+        AppLogger.LogWarning($"No thumbnail could be loaded for video {metadata?.Id ?? "unknown"}.");
+    }
+
+    private static IEnumerable<Uri> GetThumbnailCandidates(VideoMetadata? metadata, Uri thumbnailUri)
+    {
+        if (!thumbnailUri.Host.EndsWith("ytimg.com", StringComparison.OrdinalIgnoreCase))
+        {
+            yield return thumbnailUri;
+            yield break;
+        }
+
+        var compatibleUri = new UriBuilder(thumbnailUri);
+        compatibleUri.Path = compatibleUri.Path.Replace("/vi_webp/", "/vi/", StringComparison.OrdinalIgnoreCase);
+        if (compatibleUri.Path.EndsWith(".webp", StringComparison.OrdinalIgnoreCase))
+        {
+            compatibleUri.Path = compatibleUri.Path[..^5] + ".jpg";
+        }
+
+        yield return compatibleUri.Uri;
+
+        if (!string.IsNullOrWhiteSpace(metadata?.Id))
+        {
+            yield return new Uri($"https://i.ytimg.com/vi/{Uri.EscapeDataString(metadata.Id)}/hqdefault.jpg");
+        }
+    }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsVideoOptionsVisibility))]
+    public partial bool IsMp4Selected { get; set; } = true;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsVideoOptionsVisibility))]
+    public partial bool IsMovSelected { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsAudioOptionsVisibility))]
+    public partial bool IsAudioSelected { get; set; }
+
+    public Microsoft.UI.Xaml.Visibility IsVideoOptionsVisibility => (IsMp4Selected || IsMovSelected) ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
+    public Microsoft.UI.Xaml.Visibility IsAudioOptionsVisibility => IsAudioSelected ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
+
+    partial void OnIsMp4SelectedChanged(bool value)
+    {
+        if (value) { IsAudioSelected = false; IsMovSelected = false; }
+        else if (!IsMovSelected && !IsAudioSelected) IsMp4Selected = true;
+    }
+
+    partial void OnIsMovSelectedChanged(bool value)
+    {
+        if (value) { IsAudioSelected = false; IsMp4Selected = false; }
+        else if (!IsMp4Selected && !IsAudioSelected) IsMovSelected = true;
+    }
+
+    partial void OnIsAudioSelectedChanged(bool value)
+    {
+        if (value) { IsMp4Selected = false; IsMovSelected = false; }
+        else if (!IsMp4Selected && !IsMovSelected) IsAudioSelected = true;
+    }
+
+    [ObservableProperty]
+    public partial ObservableCollection<VideoFormat> AvailableFormats { get; set; } = new();
+
+    [ObservableProperty]
+    public partial VideoFormat? SelectedFormat { get; set; }
+
+    [ObservableProperty]
+    public partial ObservableCollection<AudioBitrate> AvailableAudioBitrates { get; set; } = new()
+    {
+        new AudioBitrate { Name = "Alta (320 kbps)", Value = "320" },
+        new AudioBitrate { Name = "Padrão (192 kbps)", Value = "192" },
+        new AudioBitrate { Name = "Baixa (128 kbps)", Value = "128" }
+    };
+
+    [ObservableProperty]
+    public partial AudioBitrate? SelectedAudioBitrate { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ProgressText))]
+    public partial double Progress { get; set; }
+
+    [ObservableProperty]
+    public partial string Speed { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string Eta { get; set; } = string.Empty;
+
+    public string ProgressText => $"{Math.Round(Progress, 1)}%";
+
+    [ObservableProperty]
+    public partial string StatusMessage { get; set; } = "Aguardando na fila...";
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(OpenLocationVisibility))]
+    public partial bool IsDownloadComplete { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(StatusColor))]
+    public partial bool IsError { get; set; }
+
+    public Microsoft.UI.Xaml.Media.SolidColorBrush StatusColor => new Microsoft.UI.Xaml.Media.SolidColorBrush(
+        IsError ? Microsoft.UI.Colors.Red :
+        IsDownloadComplete ? Microsoft.UI.Colors.LightGreen :
+        Microsoft.UI.Colors.LightGray);
+
+    public Microsoft.UI.Xaml.Visibility OpenLocationVisibility => IsDownloadComplete ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
+
+    public string DownloadedFolderPath { get; set; } = string.Empty;
+    public string DownloadedFilePath { get; private set; } = string.Empty;
+    public bool CanRetryDownload => !IsDownloading && IsError && Metadata != null && !string.IsNullOrWhiteSpace(DownloadedFolderPath);
+    public bool ShouldOverwriteExistingFiles { get; set; }
+
+    public Action<DownloadItemViewModel>? OnRemoveRequested { get; set; }
+
+    public DownloadItemViewModel(string url, IDownloadService downloadService)
+    {
+        Url = url;
+        _downloadService = downloadService;
+        SelectedAudioBitrate = AvailableAudioBitrates[0];
+    }
+
+    public void CancelCurrentOperation()
+    {
+        _cts?.Cancel();
+    }
+
+    [RelayCommand]
+    private void Remove()
+    {
+        CancelCurrentOperation();
+        OnRemoveRequested?.Invoke(this);
+    }
+
+    [RelayCommand]
+    private void OpenLocation()
+    {
+        if (!string.IsNullOrEmpty(DownloadedFolderPath))
+        {
+            try
+            {
+                System.Diagnostics.Process.Start("explorer.exe", DownloadedFolderPath);
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogException(ex, $"Failed to open download folder: {DownloadedFolderPath}");
+                StatusMessage = "Não foi possível abrir a pasta do download. Verifique se ela ainda existe.";
+            }
+        }
+    }
+
+    [RelayCommand]
+    private void PrepareAnotherDownload()
+    {
+        IsDownloadComplete = false;
+        IsError = false;
+        Progress = 0;
+        StatusMessage = "Selecione outro formato e baixe novamente.";
+    }
+
+    public async Task RetryDownloadAsync()
+    {
+        if (string.IsNullOrWhiteSpace(DownloadedFolderPath) || Metadata == null)
+        {
+            return;
+        }
+
+        IsError = false;
+        StatusMessage = "Tentando novamente...";
+        await StartDownloadAsync(DownloadedFolderPath, CancellationToken.None);
+    }
+
+    private static string GetFriendlyMessage(string? message)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return "O download falhou. Tente novamente.";
+        }
+
+        var normalized = message.Trim();
+        if (normalized.Contains("Arquivo já existe", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Arquivo já existente. Habilite a sobrescrita para continuar ou escolha outra pasta.";
+        }
+
+        if (normalized.Contains("pasta de destino", StringComparison.OrdinalIgnoreCase) || normalized.Contains("Não foi possível gravar", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Não foi possível gravar na pasta selecionada. Verifique as permissões ou escolha outra pasta.";
+        }
+
+        if (normalized.Contains("Não foi possível localizar o arquivo final", StringComparison.OrdinalIgnoreCase))
+        {
+            return "O processo terminou, mas o arquivo final não foi localizado. Verifique a pasta de destino.";
+        }
+
+        if (normalized.Contains("download cancelado", StringComparison.OrdinalIgnoreCase) || normalized.Contains("cancelado", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Download cancelado pelo usuário.";
+        }
+
+        return normalized.Length > 180 ? normalized.Substring(0, 177) + "..." : normalized;
+    }
+
+    public async Task FetchMetadataAsync()
+    {
+        IsFetching = true;
+        StatusMessage = "Analisando link...";
+
+        _cts?.Cancel();
+        _cts = new CancellationTokenSource();
+
+        try
+        {
+            var meta = await _downloadService.FetchMetadataAsync(Url, _cts.Token);
+            if (meta != null)
+            {
+                Metadata = meta;
+
+                var cleanFormats = meta.Formats
+                    .Where(f => f.HasVideo && !string.IsNullOrEmpty(f.Resolution) && f.Resolution != "audio only")
+                    .OrderByDescending(f => f.Height ?? 0)
+                    .ThenByDescending(f => f.Fps)
+                    .ThenBy(f => f.HasAudio ? 1 : 0)
+                    .ToList();
+
+                var grouped = cleanFormats.GroupBy(f => f.Resolution).Select(g => g.First()).ToList();
+
+                foreach (var f in grouped.Take(15))
+                {
+                    AvailableFormats.Add(f);
+                }
+
+                if (AvailableFormats.Any())
+                {
+                    SelectedFormat = AvailableFormats.First();
+                }
+
+                StatusMessage = "Pronto.";
+                IsError = false;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            StatusMessage = "Análise cancelada.";
+            IsError = true;
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Erro: {ex.Message}";
+            IsError = true;
+        }
+        finally
+        {
+            IsFetching = false;
+        }
+    }
+
+    public async Task StartDownloadAsync(string destinationFolder, CancellationToken masterToken)
+    {
+        if (masterToken.IsCancellationRequested || IsDownloadComplete || Metadata == null)
+        {
+            return;
+        }
+
+        var lockAcquired = false;
+        try
+        {
+            await _downloadLock.WaitAsync(masterToken);
+            lockAcquired = true;
+
+            if (IsDownloading || IsDownloadComplete || Metadata == null || masterToken.IsCancellationRequested)
+            {
+                return;
+            }
+
+            IsDownloading = true;
+            IsError = false;
+            Progress = 0;
+            StatusMessage = "Iniciando download...";
+
+            _cts?.Dispose();
+            _cts = CancellationTokenSource.CreateLinkedTokenSource(masterToken);
+
+            try
+            {
+                var formatId = (IsMp4Selected || IsMovSelected) ? SelectedFormat?.FormatId : "bestaudio";
+                var isAudio = IsAudioSelected;
+                var audioBitrate = isAudio ? (SelectedAudioBitrate?.Value ?? "192") : "";
+                var videoExt = IsMovSelected ? "mov" : "mp4";
+
+                var progressHandler = new Progress<DownloadProgressInfo>(p =>
+                {
+                    Progress = p.Percentage;
+                    Speed = p.Speed;
+                    Eta = p.Eta;
+                    if (!string.IsNullOrEmpty(p.Status))
+                    {
+                        StatusMessage = p.Status;
+                    }
+                });
+
+                DownloadedFolderPath = destinationFolder;
+
+                var resultPath = await _downloadService.DownloadAsync(
+                    Url,
+                    formatId ?? "best",
+                    isAudio,
+                    audioBitrate,
+                    videoExt,
+                    destinationFolder,
+                    progressHandler,
+                    _cts.Token,
+                    overwriteExistingFiles: ShouldOverwriteExistingFiles,
+                    titleHint: Metadata.Title
+                );
+
+                if (string.IsNullOrEmpty(resultPath))
+                {
+                    resultPath = destinationFolder;
+                }
+
+                DownloadedFilePath = resultPath;
+                DownloadedFolderPath = Path.GetDirectoryName(resultPath) ?? destinationFolder;
+                StatusMessage = $"Concluído! Arquivo salvo em: {resultPath}";
+                Progress = 100;
+                Speed = string.Empty;
+                Eta = string.Empty;
+                IsDownloadComplete = true;
+
+                var historyItem = new HistoryItem
+                {
+                    Title = Metadata.Title,
+                    Url = Url,
+                    Thumbnail = Metadata.Thumbnail,
+                    LocalFilePath = resultPath,
+                    DownloadedAt = DateTime.Now
+                };
+                await HistoryService.AddHistoryItemAsync(historyItem);
+            }
+            catch (OperationCanceledException)
+            {
+                StatusMessage = "Download cancelado pelo usuário.";
+                IsError = true;
+            }
+            catch (Exception ex)
+            {
+                var friendly = GetFriendlyMessage(ex.Message);
+                StatusMessage = friendly;
+                IsError = true;
+                AppLogger.LogException(ex, $"Download failed for {Url}");
+            }
+            finally
+            {
+                _cts?.Dispose();
+                _cts = null;
+                IsDownloading = false;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        finally
+        {
+            if (lockAcquired)
+            {
+                _downloadLock.Release();
+            }
+        }
+    }
+}
