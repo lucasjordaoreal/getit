@@ -13,7 +13,7 @@ namespace GetIt_App.Services;
 public interface IDownloadService
 {
     Task<VideoMetadata?> FetchMetadataAsync(string url, CancellationToken cancellationToken = default);
-    Task<string?> DownloadAsync(string url, string formatId, bool isAudioOnly, string audioBitrate, string videoExt, string downloadDir, IProgress<DownloadProgressInfo> progress, CancellationToken cancellationToken = default, bool overwriteExistingFiles = false, string? titleHint = null);
+    Task<string?> DownloadAsync(string url, string formatId, bool isAudioOnly, string audioFormat, string audioBitrate, string videoExt, string downloadDir, IProgress<DownloadProgressInfo> progress, CancellationToken cancellationToken = default, bool overwriteExistingFiles = false, string? titleHint = null);
 }
 
 public partial class DownloadService : IDownloadService
@@ -362,11 +362,17 @@ public partial class DownloadService : IDownloadService
         }
     }
 
-    public async Task<string?> DownloadAsync(string url, string formatId, bool isAudioOnly, string audioBitrate, string videoExt, string downloadDir, IProgress<DownloadProgressInfo> progress, CancellationToken cancellationToken = default, bool overwriteExistingFiles = false, string? titleHint = null)
+    public async Task<string?> DownloadAsync(string url, string formatId, bool isAudioOnly, string audioFormat, string audioBitrate, string videoExt, string downloadDir, IProgress<DownloadProgressInfo> progress, CancellationToken cancellationToken = default, bool overwriteExistingFiles = false, string? titleHint = null)
     {
+        string normalizedAudioFormat = audioFormat.Trim().ToLowerInvariant();
+        if (isAudioOnly && normalizedAudioFormat is not ("mp3" or "wav" or "flac"))
+        {
+            throw new ArgumentOutOfRangeException(nameof(audioFormat), audioFormat, "Formato de áudio não suportado.");
+        }
+
         ValidateDownloadDirectory(downloadDir);
 
-        string targetExtension = isAudioOnly ? "mp3" : (string.IsNullOrWhiteSpace(videoExt) ? "mp4" : videoExt.TrimStart('.'));
+        string targetExtension = isAudioOnly ? normalizedAudioFormat : (string.IsNullOrWhiteSpace(videoExt) ? "mp4" : videoExt.TrimStart('.'));
         string expectedPath = GetFallbackTargetPath(downloadDir, targetExtension, titleHint);
 
         if (File.Exists(expectedPath) && !overwriteExistingFiles)
@@ -386,7 +392,8 @@ public partial class DownloadService : IDownloadService
 
         if (isAudioOnly)
         {
-            formatArg = $"-f \"bestaudio[format_note*=original]/bestaudio/best\" --extract-audio --audio-format mp3 --audio-quality {audioBitrate}K";
+            string audioQualityArg = normalizedAudioFormat == "mp3" ? $" --audio-quality {audioBitrate}K" : string.Empty;
+            formatArg = $"-f \"bestaudio[format_note*=original]/bestaudio/best\" --extract-audio --audio-format {normalizedAudioFormat}{audioQualityArg}";
         }
         else
         {
@@ -475,7 +482,7 @@ public partial class DownloadService : IDownloadService
                     }
                     else if (line.Contains("[ExtractAudio]") || line.Contains("Extracting audio"))
                     {
-                        currentStatus = "Convertendo para MP3";
+                        currentStatus = $"Convertendo para {normalizedAudioFormat.ToUpperInvariant()}";
                         progress?.Report(new DownloadProgressInfo { Percentage = 100, Speed = string.Empty, Eta = string.Empty, Status = currentStatus });
                     }
                     else if (line.Contains("[VideoConvertor] Converting video from"))

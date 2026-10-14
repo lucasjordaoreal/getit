@@ -146,28 +146,46 @@ public partial class DownloadItemViewModel : ObservableObject
     public partial bool IsMovSelected { get; set; }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsAudioOptionsVisibility))]
-    public partial bool IsAudioSelected { get; set; }
+    [NotifyPropertyChangedFor(nameof(IsMp3OptionsVisibility))]
+    public partial bool IsMp3Selected { get; set; }
 
     public Microsoft.UI.Xaml.Visibility IsVideoOptionsVisibility => (IsMp4Selected || IsMovSelected) ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
-    public Microsoft.UI.Xaml.Visibility IsAudioOptionsVisibility => IsAudioSelected ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
+    public Microsoft.UI.Xaml.Visibility IsMp3OptionsVisibility => IsMp3Selected ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
 
     partial void OnIsMp4SelectedChanged(bool value)
     {
-        if (value) { IsAudioSelected = false; IsMovSelected = false; }
-        else if (!IsMovSelected && !IsAudioSelected) IsMp4Selected = true;
+        if (value) { IsMp3Selected = false; IsMovSelected = false; IsWavSelected = false; IsFlacSelected = false; }
+        else if (!IsMovSelected && !IsMp3Selected && !IsWavSelected && !IsFlacSelected) IsMp4Selected = true;
     }
 
     partial void OnIsMovSelectedChanged(bool value)
     {
-        if (value) { IsAudioSelected = false; IsMp4Selected = false; }
-        else if (!IsMp4Selected && !IsAudioSelected) IsMovSelected = true;
+        if (value) { IsMp3Selected = false; IsMp4Selected = false; IsWavSelected = false; IsFlacSelected = false; }
+        else if (!IsMp4Selected && !IsMp3Selected && !IsWavSelected && !IsFlacSelected) IsMovSelected = true;
     }
 
-    partial void OnIsAudioSelectedChanged(bool value)
+    partial void OnIsMp3SelectedChanged(bool value)
     {
-        if (value) { IsMp4Selected = false; IsMovSelected = false; }
-        else if (!IsMp4Selected && !IsMovSelected) IsAudioSelected = true;
+        if (value) { IsMp4Selected = false; IsMovSelected = false; IsWavSelected = false; IsFlacSelected = false; }
+        else if (!IsMp4Selected && !IsMovSelected && !IsWavSelected && !IsFlacSelected) IsMp3Selected = true;
+    }
+
+    [ObservableProperty]
+    public partial bool IsWavSelected { get; set; }
+
+    partial void OnIsWavSelectedChanged(bool value)
+    {
+        if (value) { IsMp4Selected = false; IsMovSelected = false; IsMp3Selected = false; IsFlacSelected = false; }
+        else if (!IsMp4Selected && !IsMovSelected && !IsMp3Selected && !IsFlacSelected) IsWavSelected = true;
+    }
+
+    [ObservableProperty]
+    public partial bool IsFlacSelected { get; set; }
+
+    partial void OnIsFlacSelectedChanged(bool value)
+    {
+        if (value) { IsMp4Selected = false; IsMovSelected = false; IsMp3Selected = false; IsWavSelected = false; }
+        else if (!IsMp4Selected && !IsMovSelected && !IsMp3Selected && !IsWavSelected) IsFlacSelected = true;
     }
 
     [ObservableProperty]
@@ -394,8 +412,9 @@ public partial class DownloadItemViewModel : ObservableObject
 
             try
             {
-                var formatId = (IsMp4Selected || IsMovSelected) ? SelectedFormat?.FormatId : "bestaudio";
-                var isAudio = IsAudioSelected;
+                var isAudio = IsMp3Selected || IsWavSelected || IsFlacSelected;
+                var formatId = isAudio ? "bestaudio" : SelectedFormat?.FormatId;
+                var audioFormat = IsWavSelected ? "wav" : IsFlacSelected ? "flac" : "mp3";
                 var audioBitrate = isAudio ? (SelectedAudioBitrate?.Value ?? "192") : "";
                 var videoExt = IsMovSelected ? "mov" : "mp4";
 
@@ -416,6 +435,7 @@ public partial class DownloadItemViewModel : ObservableObject
                     Url,
                     formatId ?? "best",
                     isAudio,
+                    audioFormat,
                     audioBitrate,
                     videoExt,
                     destinationFolder,

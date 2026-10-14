@@ -172,7 +172,11 @@
                                                               CornerRadius="10" Padding="12,4" FontSize="12" FontWeight="Bold" Background="Transparent" Foreground="{ThemeResource AppTextBrush}" />
                                                 <ToggleButton Content="MOV" IsChecked="{x:Bind IsMovSelected, Mode=TwoWay}" 
                                                               CornerRadius="10" Padding="12,4" FontSize="12" FontWeight="Bold" Background="Transparent" Foreground="{ThemeResource AppTextBrush}" />
-                                                <ToggleButton Content="ÁUDIO" IsChecked="{x:Bind IsAudioSelected, Mode=TwoWay}" 
+                                                <ToggleButton Content="MP3" IsChecked="{x:Bind IsMp3Selected, Mode=TwoWay}"
+                                                              CornerRadius="10" Padding="12,4" FontSize="12" FontWeight="Bold" Background="Transparent" Foreground="{ThemeResource AppTextBrush}" />
+                                                <ToggleButton Content="WAV" IsChecked="{x:Bind IsWavSelected, Mode=TwoWay}"
+                                                              CornerRadius="10" Padding="12,4" FontSize="12" FontWeight="Bold" Background="Transparent" Foreground="{ThemeResource AppTextBrush}" />
+                                                <ToggleButton Content="FLAC" IsChecked="{x:Bind IsFlacSelected, Mode=TwoWay}"
                                                               CornerRadius="10" Padding="12,4" FontSize="12" FontWeight="Bold" Background="Transparent" Foreground="{ThemeResource AppTextBrush}" />
                                             </StackPanel>
                                         </Border>
@@ -188,12 +192,12 @@
                                                   IsEnabled="{x:Bind IsNotDownloading, Mode=OneWay}" />
 
                                         <ComboBox Grid.Column="1"
-                                                  Visibility="{x:Bind IsAudioOptionsVisibility, Mode=OneWay}"
                                                   ItemsSource="{x:Bind AvailableAudioBitrates, Mode=OneWay}" 
                                                   SelectedItem="{x:Bind SelectedAudioBitrate, Mode=TwoWay}"
                                                   DisplayMemberPath="Name"
                                                   HorizontalAlignment="Stretch"
                                                   CornerRadius="12" Padding="12,4" Background="{ThemeResource AppInputBrush}" Foreground="{ThemeResource AppTextBrush}" BorderBrush="{ThemeResource AppBorderBrush}" BorderThickness="1"
+                                                  Visibility="{x:Bind IsMp3OptionsVisibility, Mode=OneWay}"
                                                   IsEnabled="{x:Bind IsNotDownloading, Mode=OneWay}" />
                                     </Grid>
 

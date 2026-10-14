@@ -9,34 +9,74 @@
     Background="Transparent">
 
     <Grid Margin="24,20">
-        <StackPanel Spacing="20" MaxWidth="720" HorizontalAlignment="Stretch">
-            <StackPanel Spacing="4">
+        <Grid MaxWidth="1080" HorizontalAlignment="Stretch" RowSpacing="20">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <StackPanel Grid.Row="0" Spacing="4">
                 <TextBlock Text="Configurações" FontSize="26" FontWeight="Bold" Foreground="{ThemeResource AppTextBrush}" />
                 <TextBlock Text="Ajuste a aparência e mantenha os componentes atualizados."
                            FontSize="14" Foreground="{ThemeResource AppSecondaryTextBrush}" />
             </StackPanel>
 
-            <Border Background="{ThemeResource AppCardBrush}" BorderBrush="{ThemeResource AppBorderBrush}"
-                    BorderThickness="1" CornerRadius="8" Padding="20">
-                <StackPanel Spacing="20">
-                    <TextBlock Text="Aparência" FontSize="17" FontWeight="SemiBold" Foreground="{ThemeResource AppTextBrush}" />
-                    <ToggleSwitch x:Name="ThemeToggle" Header="Tema claro" OffContent="Escuro" OnContent="Claro"
-                                  Toggled="ThemeToggle_Toggled" />
-                    <Border Height="1" Background="{ThemeResource AppBorderBrush}" />
-                    <StackPanel Spacing="4">
-                        <TextBlock Text="Componentes" FontSize="17" FontWeight="SemiBold" Foreground="{ThemeResource AppTextBrush}" />
-                        <TextBlock Text="Atualize o yt-dlp para manter a compatibilidade com os sites de vídeo."
-                                   FontSize="13" Foreground="{ThemeResource AppSecondaryTextBrush}" TextWrapping="Wrap" />
+            <Grid Grid.Row="1" ColumnSpacing="16" HorizontalAlignment="Stretch">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="2*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Border Grid.Column="0" Background="{ThemeResource AppCardBrush}" BorderBrush="{ThemeResource AppBorderBrush}"
+                        BorderThickness="1" CornerRadius="8" Padding="20">
+                    <StackPanel Spacing="20">
+                        <TextBlock Text="Aparência" FontSize="17" FontWeight="SemiBold" Foreground="{ThemeResource AppTextBrush}" />
+                        <ToggleSwitch x:Name="ThemeToggle" Header="Tema claro" OffContent="Escuro" OnContent="Claro"
+                                      Toggled="ThemeToggle_Toggled" />
+                        <Border Height="1" Background="{ThemeResource AppBorderBrush}" />
+                        <StackPanel Spacing="12">
+                            <TextBlock Text="Atualizações" FontSize="17" FontWeight="SemiBold" Foreground="{ThemeResource AppTextBrush}" />
+                            <ToggleSwitch x:Name="AppAutoUpdateToggle" Header="Atualizar o GetIt automaticamente"
+                                          OffContent="Desativado" OnContent="Ativado"
+                                          Toggled="AppAutoUpdateToggle_Toggled" />
+                            <TextBlock Text="Quando houver uma nova versão, o GetIt avisará e pedirá confirmação antes de instalar."
+                                       FontSize="13" Foreground="{ThemeResource AppSecondaryTextBrush}" TextWrapping="Wrap" />
+                            <ToggleSwitch x:Name="YtDlpAutoUpdateToggle" Header="Atualizar o yt-dlp automaticamente"
+                                          OffContent="Desativado" OnContent="Ativado"
+                                          Toggled="YtDlpAutoUpdateToggle_Toggled" />
+                            <TextBlock Text="O yt-dlp será verificado e atualizado ao iniciar o aplicativo."
+                                       FontSize="13" Foreground="{ThemeResource AppSecondaryTextBrush}" TextWrapping="Wrap" />
+                            <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                                <Button x:Name="CheckAppUpdateButton" Content="Verificar atualização do GetIt"
+                                        Click="CheckAppUpdate_Click" MinWidth="220" />
+                                <ProgressRing x:Name="AppUpdateProgressRing" Width="20" Height="20" IsActive="False"
+                                              Visibility="Collapsed" />
+                            </StackPanel>
+                            <InfoBar x:Name="AppUpdateStatusInfoBar" IsOpen="False" IsClosable="False" />
+                            <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                                <Button x:Name="UpdateButton" Content="Verificar atualização do yt-dlp"
+                                        Click="UpdateYtDlp_Click" MinWidth="220" />
+                                <ProgressRing x:Name="UpdateProgressRing" Width="20" Height="20" IsActive="False"
+                                              Visibility="Collapsed" />
+                            </StackPanel>
+                            <InfoBar x:Name="UpdateStatusInfoBar" IsOpen="False" IsClosable="False" />
+                        </StackPanel>
                     </StackPanel>
-                    <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                        <Button x:Name="UpdateButton" Content="Verificar atualização" Click="UpdateYtDlp_Click"
-                                MinWidth="164" />
-                        <ProgressRing x:Name="UpdateProgressRing" Width="20" Height="20" IsActive="False"
-                                      Visibility="Collapsed" />
+                </Border>
+
+                <Border Grid.Column="1" Background="{ThemeResource AppCardBrush}" BorderBrush="{ThemeResource AppBorderBrush}"
+                        BorderThickness="1" CornerRadius="8" Padding="20">
+                    <StackPanel Spacing="12">
+                        <TextBlock Text="Sobre" FontSize="17" FontWeight="SemiBold" Foreground="{ThemeResource AppTextBrush}" />
+                        <TextBlock x:Name="AppVersionText" FontSize="14" Foreground="{ThemeResource AppTextBrush}" />
+                        <TextBlock Text="Desenvolvido por Lucas Jordão" FontSize="13"
+                                   Foreground="{ThemeResource AppSecondaryTextBrush}" TextWrapping="Wrap" />
+                        <HyperlinkButton Content="GitHub do GetIt"
+                                         NavigateUri="https://github.com/lucasjordaoreal/getit"
+                                         HorizontalAlignment="Left" />
                     </StackPanel>
-                    <InfoBar x:Name="UpdateStatusInfoBar" IsOpen="False" IsClosable="False" />
-                </StackPanel>
-            </Border>
-        </StackPanel>
+                </Border>
+            </Grid>
+        </Grid>
     </Grid>
 </Page>

@@ -4,10 +4,10 @@ GetIt é um aplicativo Windows para download de mídia, com foco em confiabilida
 
 ## Visão do produto
 
-- Download de vídeos e áudios com qualidade configurável
+- Download de vídeos e áudios em MP3, WAV e FLAC, com qualidade configurável para MP3
 - Suporte a múltiplos links em fila
 - Histórico local de downloads concluídos
-- Configuração de destino, tema e comportamento da aplicação
+- Configuração de destino, tema, comportamento e atualizações automáticas do aplicativo e do yt-dlp
 - Atualização e manutenção mais fáceis por meio de separação de responsabilidades
 
 ## Requisitos

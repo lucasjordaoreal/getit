@@ -42,67 +42,76 @@ public class UpdateService
             client.DefaultRequestHeaders.Add("User-Agent", $"{AppInfo.ProductName}-UpdateService");
 
             var response = await client.GetAsync(GitHubApiUrl);
-            if (!response.IsSuccessStatusCode) return null;
+            response.EnsureSuccessStatusCode();
 
             var json = await response.Content.ReadAsStringAsync();
             var release = JsonSerializer.Deserialize<GitHubRelease>(json);
 
             if (release != null && !string.IsNullOrEmpty(release.TagName))
             {
-
                 var latestVersion = release.TagName.TrimStart('v', 'V');
                 var currentVersion = CurrentVersion.ToString();
 
                 if (Version.TryParse(latestVersion, out var latest) && Version.TryParse(currentVersion, out var current))
                 {
-                    if (latest > current)
-                    {
-                        return release;
-                    }
+                    return latest > current ? release : null;
                 }
-                else if (!string.Equals(release.TagName, currentVersion, StringComparison.OrdinalIgnoreCase))
-                {
-                    // Fallback to string comparison if parsing fails
-                    return release;
-                }
+
+                throw new InvalidDataException($"Versão inválida no release do GitHub: {release.TagName}");
             }
+
+            throw new InvalidDataException("O GitHub não retornou um release válido.");
         }
         catch (Exception ex)
         {
             Debug.WriteLine($"Error checking for updates: {ex.Message}");
+            AppLogger.LogException(ex, "Failed to check for app updates");
+            throw;
         }
-
-        return null;
     }
 
     public static async Task DownloadAndInstallUpdateAsync(string downloadUrl)
     {
         try
         {
-            var tempDir = Path.Combine(Path.GetTempPath(), $"{AppInfo.ProductName}Update");
-            if (Directory.Exists(tempDir))
-            {
-                Directory.Delete(tempDir, true);
-            }
+            var tempDir = Path.Combine(Path.GetTempPath(), $"{AppInfo.ProductName}Update_{Guid.NewGuid():N}");
             Directory.CreateDirectory(tempDir);
 
-            var zipPath = Path.Combine(tempDir, "update.zip");
+            var downloadUri = new Uri(downloadUrl);
+            var isInstaller = Path.GetExtension(downloadUri.AbsolutePath).Equals(".exe", StringComparison.OrdinalIgnoreCase);
+            var downloadedPath = Path.Combine(tempDir, isInstaller ? "update-installer.exe" : "update.zip");
 
-            // 1. Download the ZIP file
             using (var client = new HttpClient())
             {
                 client.DefaultRequestHeaders.Add("User-Agent", $"{AppInfo.ProductName}-UpdateService");
                 var response = await client.GetAsync(downloadUrl);
                 response.EnsureSuccessStatusCode();
 
-                using var fileStream = new FileStream(zipPath, FileMode.Create, FileAccess.Write, FileShare.None);
+                using var fileStream = new FileStream(downloadedPath, FileMode.Create, FileAccess.Write, FileShare.None);
                 await response.Content.CopyToAsync(fileStream);
+            }
+
+            if (isInstaller)
+            {
+                var installerProcess = Process.Start(new ProcessStartInfo
+                {
+                    FileName = downloadedPath,
+                    UseShellExecute = true
+                });
+                if (installerProcess == null)
+                {
+                    throw new InvalidOperationException("Não foi possível iniciar o instalador da atualização.");
+                }
+
+                await installerProcess.WaitForExitAsync();
+                Directory.Delete(tempDir, true);
+                return;
             }
 
             // 2. Extract the ZIP file
             var extractPath = Path.Combine(tempDir, "extracted");
             Directory.CreateDirectory(extractPath);
-            ZipFile.ExtractToDirectory(zipPath, extractPath);
+            ZipFile.ExtractToDirectory(downloadedPath, extractPath);
 
             // Se o ZIP contém uma única pasta raiz (o que é comum no GitHub),
             // devemos pegar o conteúdo de dentro dela.
@@ -154,4 +163,3 @@ del ""%~f0""
         }
     }
 }
-

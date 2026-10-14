@@ -18,6 +18,7 @@ public sealed partial class MainWindow : Window
         // Select Home by default
         NavView.SelectedItem = NavView.MenuItems[0];
         RootFrame.Navigate(typeof(MainPage), null, new SuppressNavigationTransitionInfo());
+        App.OnMainWindowReady();
     }
 
     private void NavView_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)

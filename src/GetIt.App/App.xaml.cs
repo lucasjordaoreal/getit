@@ -4,6 +4,10 @@ using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
+using System;
+using System.Linq;
+using System.Threading.Tasks;
+using GetIt_App.Services;
 
 // To learn more about WinUI, the WinUI project structure,
 // and more about our project templates, see: http://aka.ms/winui-project-info.
@@ -54,11 +58,65 @@ public partial class App : Application
         DispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
         Window.Activate();
 
-        _ = System.Threading.Tasks.Task.Run(async () =>
+        var settings = SettingsService.LoadSettings();
+        if (settings.IsYtDlpAutoUpdateEnabled)
         {
-            var updater = new Services.YtDlpUpdateService();
-            await updater.UpdateAsync();
-        });
+            _ = Task.Run(async () =>
+            {
+                var updater = new YtDlpUpdateService();
+                await updater.UpdateAsync();
+            });
+        }
+
+    }
+
+    internal static void OnMainWindowReady()
+    {
+        if (SettingsService.LoadSettings().IsAppAutoUpdateEnabled)
+        {
+            _ = ((App)Current).CheckForAppUpdatesAsync();
+        }
+    }
+
+    private async Task CheckForAppUpdatesAsync()
+    {
+        try
+        {
+            var release = await UpdateService.CheckForUpdatesAsync();
+            if (release == null)
+            {
+                return;
+            }
+
+            var installer = release.Assets.FirstOrDefault(asset =>
+                string.Equals(
+                    asset.Name,
+                    $"GetIt-Setup-v{release.TagName}.exe",
+                    StringComparison.OrdinalIgnoreCase));
+            if (installer == null)
+            {
+                AppLogger.LogWarning($"Update {release.TagName} is available but has no installer asset.");
+                return;
+            }
+
+            var dialog = new ContentDialog
+            {
+                Title = "Atualização disponível",
+                Content = $"A versão {release.TagName} do GetIt está disponível. Deseja baixar e instalar agora?",
+                PrimaryButtonText = "Atualizar",
+                CloseButtonText = "Agora não",
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = ((FrameworkElement)Window.Content).XamlRoot
+            };
+
+            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+            {
+                await UpdateService.DownloadAndInstallUpdateAsync(installer.BrowserDownloadUrl);
+            }
+        }
+        catch (Exception ex)
+        {
+            AppLogger.LogException(ex, "Automatic app update check failed");
+        }
     }
 }
-

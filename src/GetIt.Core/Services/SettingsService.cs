@@ -16,6 +16,10 @@ public class AppSettings
     public string? Theme { get; set; } = null;
 
     public bool IsAutoPasteEnabled { get; set; } = true;
+
+    public bool IsAppAutoUpdateEnabled { get; set; } = true;
+
+    public bool IsYtDlpAutoUpdateEnabled { get; set; } = true;
 }
 
 public static class SettingsService
