@@ -1,4 +1,12 @@
-# 🚀 GetIt - v0.0.8
+# 🚀 GetIt - v0.0.9
+
+### ✨ Melhorias:
+- **Histórico de downloads:** Persistência do histórico em arquivo local, com inclusão de novos itens, limite de 100 registros e opção para limpar.
+- **Configurações do aplicativo:** Preferências de pasta de download, tema e colagem automática salvas entre sessões; detecção do tema do Windows.
+- **Logs e diagnóstico:** Registro de exceções em arquivo local para facilitar a investigação de problemas.
+- **Estrutura e qualidade:** Funcionalidades compartilhadas de metadados e serviços centralizadas no projeto `GetIt.Core`, com testes automatizados e validação de build, testes e formatação no CI.
+
+## GetIt - v0.0.8
 
 ### ✨ Melhorias:
 - **Fila de downloads:** Links agora são adicionados por uma ação explícita, validados antes da análise e podem ser preparados enquanto os metadados são carregados. O início da fila aguarda a conclusão das análises pendentes.
