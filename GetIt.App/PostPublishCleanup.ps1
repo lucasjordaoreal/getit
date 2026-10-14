@@ -49,6 +49,38 @@ $keepFiles = @(
     'Microsoft.Windows.ApplicationModel.Resources.dll'
 )
 
+$frameworkFiles = @()
+$depsPath = Join-Path $pubDir 'GetIt.deps.json'
+if (Test-Path $depsPath) {
+    $deps = Get-Content $depsPath -Raw | ConvertFrom-Json
+    $runtimeTargetName = $deps.runtimeTarget.name
+    $runtimeTarget = $deps.targets.PSObject.Properties |
+        Where-Object { $_.Name -eq $runtimeTargetName } |
+        Select-Object -First 1 -ExpandProperty Value
+    if ($runtimeTarget) {
+        $runtimePack = $runtimeTarget.PSObject.Properties |
+            Where-Object { $_.Name -like 'runtimepack.Microsoft.NETCore.App.Runtime.*' } |
+            Select-Object -First 1
+        if ($runtimePack -and $runtimePack.Value.runtime) {
+            $frameworkFiles = @(
+                $runtimePack.Value.runtime.PSObject.Properties.Name |
+                    Where-Object { $_ -match '\.dll$' } |
+                    ForEach-Object { [System.IO.Path]::GetFileName($_) }
+            )
+        }
+    }
+}
+
+foreach ($name in $frameworkFiles) {
+    $rootPath = Join-Path $pubDir $name
+    $libsPath = Join-Path $libsDir $name
+    if (!(Test-Path $rootPath) -and (Test-Path $libsPath)) {
+        Move-Item $libsPath -Destination $rootPath -Force
+    } elseif (Test-Path $libsPath) {
+        Remove-Item $libsPath -Force
+    }
+}
+
 # Remove foreign language folders (keep pt-BR and en-us)
 Get-ChildItem -Path $pubDir -Directory | Where-Object {
     $_.Name -match '^[a-z]{2,3}(-[A-Za-z0-9]+)*$' -and $_.Name -ne 'pt-BR' -and $_.Name -ne 'en-us'
@@ -59,7 +91,7 @@ Get-ChildItem -Path $pubDir -Directory | Where-Object {
 $movedCount = 0
 Get-ChildItem -Path $pubDir -File | ForEach-Object {
     $name = $_.Name
-    if ($name.EndsWith('.pri', [System.StringComparison]::OrdinalIgnoreCase) -or ($keepFiles -contains $name)) {
+    if (($frameworkFiles -contains $name) -or $name.EndsWith('.pri', [System.StringComparison]::OrdinalIgnoreCase) -or ($keepFiles -contains $name)) {
         # Keep in root
     } else {
         Move-Item $_.FullName -Destination $libsDir -Force
@@ -73,7 +105,12 @@ Write-Host "Moved $movedCount dependencies into Libs subfolder."
 $depsPath = Join-Path $pubDir 'GetIt.deps.json'
 if (Test-Path $depsPath) {
     $content = Get-Content $depsPath -Raw
-    $libFiles = Get-ChildItem $libsDir -File | Select-Object -ExpandProperty Name
+    foreach ($name in $frameworkFiles) {
+        $content = $content.Replace("`"Libs/$name`":", "`"$name`":")
+    }
+    $libFiles = Get-ChildItem $libsDir -File |
+        Where-Object { $frameworkFiles -notcontains $_.Name } |
+        Select-Object -ExpandProperty Name
     foreach ($lib in $libFiles) {
         $content = $content.Replace("`"$lib`":", "`"Libs/$lib`":")
     }
