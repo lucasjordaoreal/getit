@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Version>0.0.8</Version>
+    <Version>0.0.9</Version>
     <AssemblyVersion>0.0.9.0</AssemblyVersion>
     <FileVersion>0.0.9.0</FileVersion>
     <OutputType>WinExe</OutputType>
@@ -116,4 +116,3 @@
     <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\PostPublishCleanup.ps1&quot; -PublishDir &quot;$(TargetPubDir)&quot;" />
   </Target>
 </Project>
-
