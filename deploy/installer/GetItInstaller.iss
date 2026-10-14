@@ -25,9 +25,9 @@ DefaultGroupName={#MyAppName}
 AllowNoIcons=yes
 
 ; Configuração de saída do executável de instalação
-OutputDir=..\bin\Installer
+OutputDir=..\..\bin\Installer
 OutputBaseFilename=GetIt-Setup-v{#MyAppVersion}
-SetupIconFile=..\GetIt.App\icon.ico
+SetupIconFile=..\..\src\GetIt.App\icon.ico
 Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
@@ -64,7 +64,7 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Files]
 ; Copia tudo da pasta de publicação (incluindo GetIt.exe, Libs/, Engine/, etc.)
-Source: "..\GetIt.App\bin\Release\net10.0-windows10.0.26100.0\win-x64\publish\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\..\src\GetIt.App\bin\Release\net10.0-windows10.0.26100.0\win-x64\publish\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
