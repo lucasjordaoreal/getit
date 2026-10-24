@@ -1,3 +1,9 @@
+# 🚀 GetIt - v0.1.0
+
+### ✨ Melhorias:
+- **Atualizações:** Deixe seu app sempre atualizado com as atualizações automáticas!
+- **Sobre:** Agora o App mostra a versão do aplicativo
+
 # 🚀 GetIt - v0.0.9
 
 ### ✨ Melhorias:
