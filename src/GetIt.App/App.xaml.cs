@@ -57,6 +57,9 @@ public partial class App : Application
         Window = new MainWindow();
         DispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
         Window.Activate();
+#if DEBUG
+        if (LayoutRegressionProbe.IsEnabled) return;
+#endif
 
         var settings = SettingsService.LoadSettings();
         if (settings.IsYtDlpAutoUpdateEnabled)

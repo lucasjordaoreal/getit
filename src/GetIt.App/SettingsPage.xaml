@@ -8,6 +8,7 @@
     mc:Ignorable="d"
     Background="Transparent">
 
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
     <Grid Margin="24,20">
         <Grid MaxWidth="1080" HorizontalAlignment="Stretch" RowSpacing="20">
             <Grid.RowDefinitions>
@@ -53,12 +54,19 @@
                                               Visibility="Collapsed" />
                             </StackPanel>
                             <InfoBar x:Name="AppUpdateStatusInfoBar" IsOpen="False" IsClosable="False" />
+                            <StackPanel Spacing="5">
+                                <TextBlock x:Name="YtDlpInstalledVersionText" Text="yt-dlp instalado: verificando…" FontSize="13" Foreground="{ThemeResource AppTextBrush}" TextWrapping="Wrap" />
+                                <TextBlock x:Name="YtDlpLatestVersionText" Text="Última versão estável: verificando…" FontSize="13" Foreground="{ThemeResource AppSecondaryTextBrush}" TextWrapping="Wrap" />
+                            </StackPanel>
                             <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                                <Button x:Name="UpdateButton" Content="Verificar atualização do yt-dlp"
-                                        Click="UpdateYtDlp_Click" MinWidth="220" />
+                                <Button x:Name="UpdateButton" Content="Verificar versão do yt-dlp"
+                                        Click="UpdateYtDlp_Click" />
                                 <ProgressRing x:Name="UpdateProgressRing" Width="20" Height="20" IsActive="False"
                                               Visibility="Collapsed" />
                             </StackPanel>
+                            <Button x:Name="InstallYtDlpUpdateButton" Content="Atualizar yt-dlp" Click="InstallYtDlpUpdate_Click"
+                                    Visibility="Collapsed" HorizontalAlignment="Left" Background="{ThemeResource AppAccentBrush}"
+                                    Foreground="{ThemeResource AppAccentTextBrush}" />
                             <InfoBar x:Name="UpdateStatusInfoBar" IsOpen="False" IsClosable="False" />
                         </StackPanel>
                     </StackPanel>
@@ -79,4 +87,5 @@
             </Grid>
         </Grid>
     </Grid>
+    </ScrollViewer>
 </Page>

@@ -20,6 +20,7 @@ public partial class DownloadItemViewModel : ObservableObject
     private readonly IDownloadService _downloadService;
     private readonly SemaphoreSlim _downloadLock = new(1, 1);
     private CancellationTokenSource? _cts;
+    private CancellationTokenSource? _thumbnailCts;
     private int _thumbnailRequestId;
 
     public string Url { get; }
@@ -33,14 +34,21 @@ public partial class DownloadItemViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(IsNotBusy))]
     [NotifyPropertyChangedFor(nameof(IsNotDownloading))]
     [NotifyPropertyChangedFor(nameof(IsDownloadingVisibility))]
+    [NotifyPropertyChangedFor(nameof(CanEditQueue))]
+    [NotifyPropertyChangedFor(nameof(CanRetryDownload))]
+    [NotifyCanExecuteChangedFor(nameof(RemoveCommand))]
+    [NotifyCanExecuteChangedFor(nameof(PrepareAnotherDownloadCommand))]
     public partial bool IsDownloading { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanEditQueue))]
+    [NotifyPropertyChangedFor(nameof(IsNotDownloading))]
+    [NotifyCanExecuteChangedFor(nameof(RemoveCommand))]
+    [NotifyCanExecuteChangedFor(nameof(PrepareAnotherDownloadCommand))]
     public partial bool IsQueueLocked { get; set; }
 
     public bool IsNotBusy => !IsFetching && !IsDownloading;
-    public bool IsNotDownloading => !IsDownloading;
+    public bool IsNotDownloading => !IsDownloading && !IsQueueLocked;
     public bool CanEditQueue => !IsDownloading && !IsQueueLocked;
 
     public Microsoft.UI.Xaml.Visibility IsFetchingVisibility => IsFetching ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
@@ -49,18 +57,22 @@ public partial class DownloadItemViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasMetadata))]
     [NotifyPropertyChangedFor(nameof(HasMetadataVisibility))]
+    [NotifyPropertyChangedFor(nameof(DisplayTitle))]
     public partial VideoMetadata? Metadata { get; set; }
 
     [ObservableProperty]
     public partial BitmapImage? ThumbnailImage { get; set; }
 
     public bool HasMetadata => Metadata != null;
+    public string DisplayTitle => string.IsNullOrWhiteSpace(Metadata?.Title) ? Url : Metadata.Title;
     public Microsoft.UI.Xaml.Visibility HasMetadataVisibility => HasMetadata ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
 
     partial void OnMetadataChanged(VideoMetadata? value)
     {
         var requestId = Interlocked.Increment(ref _thumbnailRequestId);
         ThumbnailImage = null;
+        _thumbnailCts?.Cancel();
+        _thumbnailCts = null;
 
         if (!Uri.TryCreate(value?.Thumbnail, UriKind.Absolute, out var thumbnailUri) ||
             (thumbnailUri.Scheme != Uri.UriSchemeHttp && thumbnailUri.Scheme != Uri.UriSchemeHttps))
@@ -68,7 +80,9 @@ public partial class DownloadItemViewModel : ObservableObject
             return;
         }
 
-        _ = LoadThumbnailAsync(value, thumbnailUri, requestId);
+        var thumbnailCts = new CancellationTokenSource();
+        _thumbnailCts = thumbnailCts;
+        _ = LoadThumbnailAsync(value, thumbnailUri, requestId, thumbnailCts);
     }
 
     private static HttpClient CreateThumbnailHttpClient()
@@ -78,40 +92,46 @@ public partial class DownloadItemViewModel : ObservableObject
         return client;
     }
 
-    private async Task LoadThumbnailAsync(VideoMetadata? metadata, Uri thumbnailUri, int requestId)
+    private async Task LoadThumbnailAsync(VideoMetadata? metadata, Uri thumbnailUri, int requestId, CancellationTokenSource operation)
     {
-        foreach (var candidate in GetThumbnailCandidates(metadata, thumbnailUri))
+        using (operation)
         {
             try
             {
-                var imageBytes = await ThumbnailHttpClient.GetByteArrayAsync(candidate);
-                using var stream = new InMemoryRandomAccessStream();
-                using (var writer = new DataWriter(stream))
+                foreach (var candidate in GetThumbnailCandidates(metadata, thumbnailUri))
                 {
-                    writer.WriteBytes(imageBytes);
-                    await writer.StoreAsync();
-                    await writer.FlushAsync();
-                    writer.DetachStream();
+                    try
+                    {
+                        var imageBytes = await ThumbnailHttpClient.GetByteArrayAsync(candidate, operation.Token);
+                        using var stream = new InMemoryRandomAccessStream();
+                        using (var writer = new DataWriter(stream))
+                        {
+                            writer.WriteBytes(imageBytes);
+                            await writer.StoreAsync();
+                            await writer.FlushAsync();
+                            writer.DetachStream();
+                        }
+                        operation.Token.ThrowIfCancellationRequested();
+                        stream.Seek(0);
+                        var image = new BitmapImage { DecodePixelWidth = 256 };
+                        await image.SetSourceAsync(stream);
+                        if (requestId == Volatile.Read(ref _thumbnailRequestId) && !operation.IsCancellationRequested)
+                            ThumbnailImage = image;
+                        return;
+                    }
+                    catch (OperationCanceledException) { return; }
+                    catch (Exception ex)
+                    {
+                        AppLogger.LogWarning($"Failed to load thumbnail from {candidate}: {ex.Message}");
+                    }
                 }
-
-                stream.Seek(0);
-                var image = new BitmapImage();
-                await image.SetSourceAsync(stream);
-
-                if (requestId == Volatile.Read(ref _thumbnailRequestId))
-                {
-                    ThumbnailImage = image;
-                }
-
-                return;
+                AppLogger.LogWarning($"No thumbnail could be loaded for video {metadata?.Id ?? "unknown"}.");
             }
-            catch (Exception ex)
+            finally
             {
-                AppLogger.LogWarning($"Failed to load thumbnail from {candidate}: {ex.Message}");
+                if (ReferenceEquals(_thumbnailCts, operation)) _thumbnailCts = null;
             }
         }
-
-        AppLogger.LogWarning($"No thumbnail could be loaded for video {metadata?.Id ?? "unknown"}.");
     }
 
     private static IEnumerable<Uri> GetThumbnailCandidates(VideoMetadata? metadata, Uri thumbnailUri)
@@ -222,10 +242,12 @@ public partial class DownloadItemViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(OpenLocationVisibility))]
+    [NotifyPropertyChangedFor(nameof(StatusColor))]
     public partial bool IsDownloadComplete { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(StatusColor))]
+    [NotifyPropertyChangedFor(nameof(CanRetryDownload))]
     public partial bool IsError { get; set; }
 
     public Microsoft.UI.Xaml.Media.SolidColorBrush StatusColor => new Microsoft.UI.Xaml.Media.SolidColorBrush(
@@ -252,11 +274,13 @@ public partial class DownloadItemViewModel : ObservableObject
     public void CancelCurrentOperation()
     {
         _cts?.Cancel();
+        _thumbnailCts?.Cancel();
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanEditQueue))]
     private void Remove()
     {
+        if (!CanEditQueue) return;
         CancelCurrentOperation();
         OnRemoveRequested?.Invoke(this);
     }
@@ -264,23 +288,33 @@ public partial class DownloadItemViewModel : ObservableObject
     [RelayCommand]
     private void OpenLocation()
     {
-        if (!string.IsNullOrEmpty(DownloadedFolderPath))
+        try
         {
-            try
+            var start = new System.Diagnostics.ProcessStartInfo("explorer.exe") { UseShellExecute = true };
+            if (File.Exists(DownloadedFilePath))
             {
-                System.Diagnostics.Process.Start("explorer.exe", DownloadedFolderPath);
+                start.ArgumentList.Add("/select,");
+                start.ArgumentList.Add(DownloadedFilePath);
             }
-            catch (Exception ex)
+            else if (Directory.Exists(DownloadedFolderPath)) start.ArgumentList.Add(DownloadedFolderPath);
+            else
             {
-                AppLogger.LogException(ex, $"Failed to open download folder: {DownloadedFolderPath}");
-                StatusMessage = "Não foi possível abrir a pasta do download. Verifique se ela ainda existe.";
+                StatusMessage = "O arquivo ou a pasta não está mais disponível.";
+                return;
             }
+            System.Diagnostics.Process.Start(start);
+        }
+        catch (Exception ex)
+        {
+            AppLogger.LogException(ex, "Failed to reveal the downloaded media in Explorer");
+            StatusMessage = "Não foi possível abrir o arquivo. Verifique se a pasta ainda existe.";
         }
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanEditQueue))]
     private void PrepareAnotherDownload()
     {
+        if (!CanEditQueue) return;
         IsDownloadComplete = false;
         IsError = false;
         Progress = 0;
@@ -332,15 +366,16 @@ public partial class DownloadItemViewModel : ObservableObject
 
     public async Task FetchMetadataAsync()
     {
+        if (IsFetching || IsDownloading || IsQueueLocked) return;
         IsFetching = true;
         StatusMessage = "Analisando link...";
 
-        _cts?.Cancel();
-        _cts = new CancellationTokenSource();
+        using var operation = new CancellationTokenSource();
+        _cts = operation;
 
         try
         {
-            var meta = await _downloadService.FetchMetadataAsync(Url, _cts.Token);
+            var meta = await _downloadService.FetchMetadataAsync(Url, operation.Token);
             if (meta != null)
             {
                 Metadata = meta;
@@ -353,6 +388,7 @@ public partial class DownloadItemViewModel : ObservableObject
                     .ToList();
 
                 var grouped = cleanFormats.GroupBy(f => f.Resolution).Select(g => g.First()).ToList();
+                AvailableFormats.Clear();
 
                 foreach (var f in grouped.Take(15))
                 {
@@ -375,18 +411,19 @@ public partial class DownloadItemViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            StatusMessage = $"Erro: {ex.Message}";
+            StatusMessage = GetFriendlyMessage(ex.Message);
             IsError = true;
         }
         finally
         {
+            if (ReferenceEquals(_cts, operation)) _cts = null;
             IsFetching = false;
         }
     }
 
     public async Task StartDownloadAsync(string destinationFolder, CancellationToken masterToken)
     {
-        if (masterToken.IsCancellationRequested || IsDownloadComplete || Metadata == null)
+        if (masterToken.IsCancellationRequested || IsFetching || IsDownloadComplete || Metadata == null)
         {
             return;
         }
@@ -397,7 +434,7 @@ public partial class DownloadItemViewModel : ObservableObject
             await _downloadLock.WaitAsync(masterToken);
             lockAcquired = true;
 
-            if (IsDownloading || IsDownloadComplete || Metadata == null || masterToken.IsCancellationRequested)
+            if (IsFetching || IsDownloading || IsDownloadComplete || Metadata == null || masterToken.IsCancellationRequested)
             {
                 return;
             }

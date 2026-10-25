@@ -2,29 +2,49 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using GetIt_App.Services;
 using System;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace GetIt_App;
 
 public sealed partial class SettingsPage : Page
 {
+    private readonly YtDlpUpdateService _ytDlpUpdater = new();
+    private CancellationTokenSource? _pageLifetime;
+    private YtDlpVersionStatus? _ytDlpStatus;
+    private bool _isLoadingSettings = true;
+    private bool _ytDlpBusy;
+
     public SettingsPage()
     {
         this.InitializeComponent();
         this.Loaded += SettingsPage_Loaded;
+        Unloaded += (_, _) =>
+        {
+            _pageLifetime?.Cancel();
+            _pageLifetime?.Dispose();
+            _pageLifetime = null;
+        };
     }
 
-    private void SettingsPage_Loaded(object sender, RoutedEventArgs e)
+    private async void SettingsPage_Loaded(object sender, RoutedEventArgs e)
     {
+        _isLoadingSettings = true;
         ThemeToggle.IsOn = MainPage.CurrentTheme == ElementTheme.Light;
         var settings = SettingsService.LoadSettings();
         AppAutoUpdateToggle.IsOn = settings.IsAppAutoUpdateEnabled;
         YtDlpAutoUpdateToggle.IsOn = settings.IsYtDlpAutoUpdateEnabled;
         AppVersionText.Text = $"GetIt {AppInfo.CurrentVersion.ToString(3)}";
+        _isLoadingSettings = false;
+        _pageLifetime?.Cancel();
+        _pageLifetime?.Dispose();
+        _pageLifetime = new CancellationTokenSource();
+        await CheckYtDlpStatusAsync(_pageLifetime.Token);
     }
 
     private void AppAutoUpdateToggle_Toggled(object sender, RoutedEventArgs e)
     {
-        if (sender is ToggleSwitch toggle)
+        if (!_isLoadingSettings && sender is ToggleSwitch toggle)
         {
             var settings = SettingsService.LoadSettings();
             settings.IsAppAutoUpdateEnabled = toggle.IsOn;
@@ -34,7 +54,7 @@ public sealed partial class SettingsPage : Page
 
     private void YtDlpAutoUpdateToggle_Toggled(object sender, RoutedEventArgs e)
     {
-        if (sender is ToggleSwitch toggle)
+        if (!_isLoadingSettings && sender is ToggleSwitch toggle)
         {
             var settings = SettingsService.LoadSettings();
             settings.IsYtDlpAutoUpdateEnabled = toggle.IsOn;
@@ -44,7 +64,7 @@ public sealed partial class SettingsPage : Page
 
     private void ThemeToggle_Toggled(object sender, RoutedEventArgs e)
     {
-        if (sender is ToggleSwitch ts)
+        if (!_isLoadingSettings && sender is ToggleSwitch ts)
         {
             var newTheme = ts.IsOn ? ElementTheme.Light : ElementTheme.Dark;
             MainPage.CurrentTheme = newTheme;
@@ -62,33 +82,86 @@ public sealed partial class SettingsPage : Page
 
     private async void UpdateYtDlp_Click(object sender, RoutedEventArgs e)
     {
-        UpdateButton.IsEnabled = false;
-        UpdateProgressRing.IsActive = true;
-        UpdateProgressRing.Visibility = Visibility.Visible;
-        UpdateStatusInfoBar.Severity = InfoBarSeverity.Informational;
-        UpdateStatusInfoBar.Message = "Verificando atualizações...";
-        UpdateStatusInfoBar.IsOpen = true;
+        if (_pageLifetime is not null) await CheckYtDlpStatusAsync(_pageLifetime.Token);
+    }
 
+    private async Task CheckYtDlpStatusAsync(CancellationToken cancellationToken)
+    {
+        if (_ytDlpBusy) return;
+        SetYtDlpBusy(true);
+        UpdateStatusInfoBar.Severity = InfoBarSeverity.Informational;
+        UpdateStatusInfoBar.Message = "Consultando a versão instalada e a versão mais recente…";
+        UpdateStatusInfoBar.IsOpen = true;
         try
         {
-            var updater = new YtDlpUpdateService();
-            var success = await updater.UpdateAsync();
-            UpdateStatusInfoBar.Severity = success ? InfoBarSeverity.Success : InfoBarSeverity.Error;
-            UpdateStatusInfoBar.Message = success
-                ? "yt-dlp atualizado com sucesso."
-                : "Não foi possível atualizar o yt-dlp. Verifique se ele está instalado.";
+            _ytDlpStatus = await _ytDlpUpdater.GetStatusAsync(cancellationToken, new Progress<string>(version =>
+            {
+                if (!cancellationToken.IsCancellationRequested) YtDlpInstalledVersionText.Text = $"yt-dlp instalado: {version}";
+            }));
+            if (cancellationToken.IsCancellationRequested) return;
+            DisplayYtDlpStatus(_ytDlpStatus);
+            var previousUpdate = YtDlpUpdateService.LastUpdateResult;
+            if (previousUpdate?.Succeeded == true
+                && YtDlpVersionPolicy.Compare(previousUpdate.Before.InstalledVersion, previousUpdate.After.InstalledVersion) is < 0
+                && previousUpdate.After.InstalledVersion == _ytDlpStatus.InstalledVersion)
+                UpdateStatusInfoBar.Message = $"{previousUpdate.Message} {_ytDlpStatus.Message}";
         }
-        catch (Exception)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
+        catch (Exception exception)
         {
+            AppLogger.LogException(exception, "Could not read yt-dlp versions");
             UpdateStatusInfoBar.Severity = InfoBarSeverity.Error;
-            UpdateStatusInfoBar.Message = "Ocorreu um erro ao atualizar o yt-dlp.";
+            UpdateStatusInfoBar.Message = $"Não foi possível verificar o yt-dlp: {exception.Message}";
         }
-        finally
+        finally { SetYtDlpBusy(false); }
+    }
+
+    private async void InstallYtDlpUpdate_Click(object sender, RoutedEventArgs e)
+    {
+        if (_ytDlpBusy || _ytDlpStatus?.UpdateAvailable != true) return;
+        SetYtDlpBusy(true);
+        UpdateStatusInfoBar.Severity = InfoBarSeverity.Informational;
+        UpdateStatusInfoBar.Message = $"Atualizando yt-dlp {_ytDlpStatus.InstalledVersion} para {_ytDlpStatus.LatestVersion}…";
+        try
         {
-            UpdateProgressRing.IsActive = false;
-            UpdateProgressRing.Visibility = Visibility.Collapsed;
-            UpdateButton.IsEnabled = true;
+            // Navigation does not interrupt an executable replacement already requested by the user.
+            var result = await _ytDlpUpdater.InstallUpdateAsync(_ytDlpStatus);
+            _ytDlpStatus = result.After;
+            if (!IsLoaded) return;
+            DisplayYtDlpStatus(result.After);
+            UpdateStatusInfoBar.Severity = result.Succeeded ? InfoBarSeverity.Success : InfoBarSeverity.Error;
+            UpdateStatusInfoBar.Message = result.Message;
         }
+        catch (Exception exception)
+        {
+            AppLogger.LogException(exception, "Manual yt-dlp update failed");
+            if (!IsLoaded) return;
+            UpdateStatusInfoBar.Severity = InfoBarSeverity.Error;
+            UpdateStatusInfoBar.Message = $"Não foi possível atualizar o yt-dlp: {exception.Message}";
+        }
+        finally { SetYtDlpBusy(false); }
+    }
+
+    private void DisplayYtDlpStatus(YtDlpVersionStatus status)
+    {
+        YtDlpInstalledVersionText.Text = $"yt-dlp instalado: {status.InstalledVersion ?? "não identificado"}";
+        YtDlpLatestVersionText.Text = $"Última versão estável: {status.LatestVersion ?? "não foi possível consultar"}";
+        InstallYtDlpUpdateButton.Visibility = status.UpdateAvailable ? Visibility.Visible : Visibility.Collapsed;
+        InstallYtDlpUpdateButton.Content = $"Atualizar para {status.LatestVersion}";
+        UpdateStatusInfoBar.Severity = status.Error is not null ? InfoBarSeverity.Warning
+            : status.UpdateAvailable ? InfoBarSeverity.Informational
+            : status.IsUpToDate ? InfoBarSeverity.Success : InfoBarSeverity.Warning;
+        UpdateStatusInfoBar.Message = status.Message;
+        UpdateStatusInfoBar.IsOpen = true;
+    }
+
+    private void SetYtDlpBusy(bool busy)
+    {
+        _ytDlpBusy = busy;
+        UpdateButton.IsEnabled = !busy;
+        InstallYtDlpUpdateButton.IsEnabled = !busy;
+        UpdateProgressRing.IsActive = busy;
+        UpdateProgressRing.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private async void CheckAppUpdate_Click(object sender, RoutedEventArgs e)

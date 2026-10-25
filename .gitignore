@@ -133,3 +133,5 @@ installer/**/*.log
 !**/*.appxmanifest
 !**/*.resw
 !**/*.xml
+/deploy/usability-preview/
+/deploy/conversion-fix/

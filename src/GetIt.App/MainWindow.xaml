@@ -14,7 +14,7 @@
         <media:MicaBackdrop />
     </Window.SystemBackdrop>
 
-    <Grid Background="{ThemeResource AppSurfaceBrush}">
+    <Grid x:Name="WindowRoot" Background="{ThemeResource AppSurfaceBrush}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -27,9 +27,10 @@
                             IsBackButtonVisible="Collapsed"
                             IsPaneOpen="True"
                             IsSettingsVisible="True"
-                            OpenPaneLength="236"
+                            OpenPaneLength="200"
                             CompactPaneLength="52"
-                            PaneDisplayMode="Auto"
+                            PaneDisplayMode="Left"
+                            IsPaneToggleButtonVisible="False"
                             PaneTitle="GetIt"
                             SelectionChanged="NavView_SelectionChanged"
                             Loaded="NavView_Loaded"
