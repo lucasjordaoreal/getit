@@ -1,3 +1,12 @@
+# 🚀 GetIt - v0.1.1
+
+### ✨ Novidades e melhorias:
+- **Conversão para MOV:** Vídeos baixados agora são convertidos automaticamente para MOV, incluindo a faixa de áudio quando necessário.
+- **Aceleração por hardware:** A conversão tenta usar codificadores de GPU compatíveis e recorre à CPU quando eles não estão disponíveis ou falham.
+- **Progresso da conversão:** O andamento e o método de conversão são informados durante o download; em caso de falha, o arquivo original é preservado.
+- **Links mais confiáveis:** URLs HTTP/HTTPS são normalizadas e links de vídeos do YouTube são identificados para o fluxo de colagem automática.
+- **Atualização do yt-dlp:** As versões instalada e estável mais recente podem ser comparadas antes da instalação, e o resultado da atualização é verificado.
+
 # 🚀 GetIt - v0.1.0
 
 ### ✨ Melhorias:
