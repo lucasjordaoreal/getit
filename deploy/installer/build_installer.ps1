@@ -8,7 +8,10 @@ Set-Location $repoRoot
 $csprojPath = Join-Path $repoRoot "src\GetIt.App\GetIt.App.csproj"
 [xml]$csproj = Get-Content $csprojPath
 $version = $csproj.Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
-if (-not $version) { $version = "1.0.0" }
+if (-not $version) {
+    throw "Não foi possível encontrar <Version> em $csprojPath."
+}
+$version = $version.Trim()
 
 Write-Host "=== Compilando e Publicando GetIt v$version (Release x64) ===" -ForegroundColor Cyan
 dotnet publish "src\GetIt.App\GetIt.App.csproj" -c Release -r win-x64 --self-contained true -p:Platform=x64 -p:PublishSingleFile=false -o "src\GetIt.App\bin\Release\net10.0-windows10.0.26100.0\win-x64\publish"
