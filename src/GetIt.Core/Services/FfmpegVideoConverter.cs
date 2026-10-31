@@ -158,9 +158,12 @@ public sealed class FfmpegVideoConverter
     {
         var info = new ProcessStartInfo(executable ?? _ffmpegPath)
         {
-            UseShellExecute = false, CreateNoWindow = true,
-            RedirectStandardOutput = true, RedirectStandardError = true,
-            StandardOutputEncoding = Encoding.UTF8, StandardErrorEncoding = Encoding.UTF8
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            StandardOutputEncoding = Encoding.UTF8,
+            StandardErrorEncoding = Encoding.UTF8
         };
         foreach (var argument in arguments) info.ArgumentList.Add(argument);
         using var process = new Process { StartInfo = info };
@@ -207,7 +210,10 @@ public sealed class FfmpegVideoConverter
 
     private static string EncoderLabel(string encoder) => encoder switch
     {
-        "h264_nvenc" => "NVIDIA", "h264_qsv" => "Intel", "h264_amf" => "AMD", _ => encoder
+        "h264_nvenc" => "NVIDIA",
+        "h264_qsv" => "Intel",
+        "h264_amf" => "AMD",
+        _ => encoder
     };
 
     private static string[] QualityArguments(string encoder) => encoder switch

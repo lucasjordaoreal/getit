@@ -93,7 +93,7 @@ public sealed partial class MainPage : Page
 #if DEBUG
         if (!LayoutRegressionProbe.IsEnabled)
 #endif
-        ViewModel.ActivateClipboardMonitoring();
+            ViewModel.ActivateClipboardMonitoring();
     }
 
     /// <summary>Applies a theme to this page.</summary>

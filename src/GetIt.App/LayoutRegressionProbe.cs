@@ -93,8 +93,13 @@ internal static class LayoutRegressionProbe
             var item = new DownloadItemViewModel("https://example.invalid/layout-check", fakeService);
             item.AvailableFormats.Add(new VideoFormat
             {
-                FormatId = "synthetic-1080", Height = 1080, Width = 1920,
-                Resolution = "1920x1080", Fps = 60, VideoCodec = "h264", AudioCodec = "none"
+                FormatId = "synthetic-1080",
+                Height = 1080,
+                Width = 1920,
+                Resolution = "1920x1080",
+                Fps = 60,
+                VideoCodec = "h264",
+                AudioCodec = "none"
             });
             item.SelectedFormat = item.AvailableFormats[0];
             viewModel.DownloadQueue.Add(item);
@@ -271,7 +276,9 @@ internal static class LayoutRegressionProbe
             Calls++;
             return Task.FromResult<VideoMetadata?>(new VideoMetadata
             {
-                Id = "synthetic", Title = "Vídeo de teste", Thumbnail = string.Empty,
+                Id = "synthetic",
+                Title = "Vídeo de teste",
+                Thumbnail = string.Empty,
                 Formats = new List<VideoFormat> { new() { FormatId = "test", Height = 1080, Resolution = "1920x1080", VideoCodec = "h264", AudioCodec = "aac" } }
             });
         }

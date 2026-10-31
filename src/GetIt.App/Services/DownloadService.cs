@@ -300,7 +300,10 @@ public partial class DownloadService : IDownloadService
         var converter = new FfmpegVideoConverter(_ffmpegPath);
         var conversionProgress = new Progress<VideoConversionProgress>(update => progress?.Report(new DownloadProgressInfo
         {
-            Percentage = update.Percentage, Status = update.Status, Speed = string.Empty, Eta = string.Empty
+            Percentage = update.Percentage,
+            Status = update.Status,
+            Speed = string.Empty,
+            Eta = string.Empty
         }));
         var converted = await converter.ConvertToMovAsync(inputs.Video, target, overwriteExistingFiles, conversionProgress, cancellationToken,
             audioSourcePath: inputs.Audio);
@@ -325,9 +328,12 @@ public partial class DownloadService : IDownloadService
         if (!File.Exists(ffprobe)) throw new FileNotFoundException("ffprobe.exe não foi encontrado na pasta de componentes do GetIt.", ffprobe);
         var start = new ProcessStartInfo(ffprobe)
         {
-            UseShellExecute = false, CreateNoWindow = true,
-            RedirectStandardOutput = true, RedirectStandardError = true,
-            StandardOutputEncoding = Encoding.UTF8, StandardErrorEncoding = Encoding.UTF8
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            StandardOutputEncoding = Encoding.UTF8,
+            StandardErrorEncoding = Encoding.UTF8
         };
         foreach (var argument in new[] { "-v", "error", "-show_entries", "stream=codec_type", "-of", "json", path })
             start.ArgumentList.Add(argument);
