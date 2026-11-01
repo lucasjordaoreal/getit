@@ -36,6 +36,15 @@ public sealed partial class HistoryPage : Page
     private async System.Threading.Tasks.Task LoadHistoryAsync()
     {
         var history = await HistoryService.LoadHistoryAsync();
+        var persistenceWarning = HistoryService.LastLoadWarning;
+        HistoryPersistenceInfoBar.IsOpen = !string.IsNullOrWhiteSpace(persistenceWarning);
+        if (persistenceWarning is not null)
+        {
+            HistoryPersistenceInfoBar.Message = persistenceWarning;
+            HistoryPersistenceInfoBar.Severity = persistenceWarning.Contains("recuperado", StringComparison.OrdinalIgnoreCase)
+                ? InfoBarSeverity.Warning
+                : InfoBarSeverity.Error;
+        }
         HistoryList.ItemsSource = history;
         var hasHistory = history.Count > 0;
         HistoryList.Visibility = hasHistory ? Visibility.Visible : Visibility.Collapsed;
@@ -58,9 +67,22 @@ public sealed partial class HistoryPage : Page
         if (await dialog.ShowAsync() != ContentDialogResult.Primary)
             return;
 
-        await HistoryService.ClearHistoryAsync();
-        await LoadHistoryAsync();
+        try
+        {
+            await HistoryService.ClearHistoryAsync();
+            await LoadHistoryAsync();
+        }
+        catch (JsonFilePersistenceException)
+        {
+            HistoryPersistenceInfoBar.Severity = InfoBarSeverity.Error;
+            HistoryPersistenceInfoBar.Message =
+                "Não foi possível limpar o histórico. O arquivo anterior foi preservado; verifique as permissões e o espaço disponível.";
+            HistoryPersistenceInfoBar.IsOpen = true;
+        }
     }
+
+    private void HistoryPersistenceInfoBar_Closed(InfoBar sender, InfoBarClosedEventArgs args) =>
+        HistoryService.AcknowledgeLoadWarning();
 
     private string ResolveActualPath(string path)
     {

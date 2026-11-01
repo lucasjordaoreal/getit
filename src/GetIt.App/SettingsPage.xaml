@@ -32,6 +32,8 @@
                         BorderThickness="1" CornerRadius="8" Padding="20">
                     <StackPanel Spacing="20">
                         <TextBlock Text="Aparência" FontSize="17" FontWeight="SemiBold" Foreground="{ThemeResource AppTextBrush}" />
+                        <InfoBar x:Name="PersistenceStatusInfoBar" IsOpen="False" IsClosable="True"
+                                 Closed="PersistenceStatusInfoBar_Closed" />
                         <ToggleSwitch x:Name="ThemeToggle" Header="Tema claro" OffContent="Escuro" OnContent="Claro"
                                       Toggled="ThemeToggle_Toggled" />
                         <Border Height="1" Background="{ThemeResource AppBorderBrush}" />

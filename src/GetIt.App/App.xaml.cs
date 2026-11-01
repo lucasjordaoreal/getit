@@ -5,7 +5,6 @@ using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
 using System;
-using System.Linq;
 using System.Threading.Tasks;
 using GetIt_App.Services;
 
@@ -100,21 +99,13 @@ public partial class App : Application
                 return;
             }
 
-            var installer = release.Assets.FirstOrDefault(asset =>
-                string.Equals(
-                    asset.Name,
-                    $"GetIt-Setup-v{release.TagName}.exe",
-                    StringComparison.OrdinalIgnoreCase));
-            if (installer == null)
-            {
-                AppLogger.LogWarning($"Update {release.TagName} is available but has no installer asset.");
-                return;
-            }
+            _ = UpdateService.SelectInstaller(release);
+            var version = GitHubReleaseUpdateClient.ParseStableVersionTag(release.TagName);
 
             var dialog = new ContentDialog
             {
                 Title = "Atualização disponível",
-                Content = $"A versão {release.TagName} do GetIt está disponível. Deseja baixar e instalar agora?",
+                Content = $"A versão {version} do GetIt está disponível. Deseja baixá-la e instalar agora?",
                 PrimaryButtonText = "Atualizar",
                 CloseButtonText = "Agora não",
                 DefaultButton = ContentDialogButton.Primary,
@@ -123,12 +114,23 @@ public partial class App : Application
 
             if (await dialog.ShowAsync() == ContentDialogResult.Primary)
             {
-                await UpdateService.DownloadAndInstallUpdateAsync(installer.BrowserDownloadUrl);
+                await AppUpdateDownloadDialog.DownloadAndInstallAsync(release, dialog.XamlRoot);
             }
+        }
+        catch (OperationCanceledException)
+        {
         }
         catch (Exception ex)
         {
             AppLogger.LogException(ex, "Automatic app update check failed");
+            var dialog = new ContentDialog
+            {
+                Title = "Não foi possível atualizar o GetIt",
+                Content = $"A atualização não foi instalada. {ex.Message}",
+                CloseButtonText = "Continuar usando o GetIt",
+                XamlRoot = ((FrameworkElement)Window.Content).XamlRoot
+            };
+            await dialog.ShowAsync();
         }
     }
 }

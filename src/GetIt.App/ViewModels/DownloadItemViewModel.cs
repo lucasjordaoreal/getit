@@ -506,7 +506,14 @@ public partial class DownloadItemViewModel : ObservableObject
                     LocalFilePath = resultPath,
                     DownloadedAt = DateTime.Now
                 };
-                await HistoryService.AddHistoryItemAsync(historyItem);
+                try
+                {
+                    await HistoryService.AddHistoryItemAsync(historyItem);
+                }
+                catch (JsonFilePersistenceException)
+                {
+                    StatusMessage = "Download concluído, mas não foi possível salvar o histórico. Verifique as permissões e o espaço disponível.";
+                }
             }
             catch (OperationCanceledException)
             {

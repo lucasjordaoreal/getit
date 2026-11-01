@@ -123,6 +123,7 @@ public partial class MainPageViewModel : ObservableObject
             ? System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads")
             : settings.LastDownloadFolder;
         IsAutoPasteEnabled = settings.IsAutoPasteEnabled;
+        InputError = SettingsService.LastLoadWarning ?? string.Empty;
         _isInitializing = false;
         if (_downloadService is IDownloadEngineHealthProvider engineHealthProvider)
         {
@@ -195,9 +196,14 @@ public partial class MainPageViewModel : ObservableObject
     {
         if (!_isInitializing)
         {
-            var settings = SettingsService.LoadSettings();
-            settings.IsAutoPasteEnabled = value;
-            SettingsService.SaveSettings(settings);
+            try
+            {
+                SettingsService.UpdateSettings(settings => settings.IsAutoPasteEnabled = value);
+            }
+            catch (JsonFilePersistenceException)
+            {
+                InputError = "Não foi possível salvar as configurações. O arquivo anterior foi preservado; verifique as permissões e o espaço disponível.";
+            }
         }
         UpdateClipboardSubscription();
         if (value && _isClipboardMonitoringActive) _ = ReadClipboardIfAppropriateAsync();
@@ -287,9 +293,14 @@ public partial class MainPageViewModel : ObservableObject
         if (folder != null && CanChangeFolder)
         {
             DownloadFolder = folder.Path;
-            var settings = SettingsService.LoadSettings();
-            settings.LastDownloadFolder = DownloadFolder;
-            SettingsService.SaveSettings(settings);
+            try
+            {
+                SettingsService.UpdateSettings(settings => settings.LastDownloadFolder = DownloadFolder);
+            }
+            catch (JsonFilePersistenceException)
+            {
+                InputError = "A pasta foi alterada nesta sessão, mas não foi possível salvar a preferência. O arquivo anterior foi preservado.";
+            }
         }
     }
 

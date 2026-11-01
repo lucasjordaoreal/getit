@@ -84,6 +84,8 @@ Para empacotamento e distribuição, a pasta `installer/` contém scripts de pre
 
 ## Observações importantes
 
+- O histórico e as configurações ficam em `%APPDATA%\GetIt`. As gravações usam arquivos temporários no mesmo diretório e substituição atômica; após uma atualização, uma cópia recuperável da versão anterior é mantida. JSON inválido não é substituído por valores vazios: o GetIt tenta recuperar uma cópia local e informa quando não é possível.
+- O atualizador consulta releases estáveis do GitHub e só inicia o instalador após validar o SHA-256 publicado pela API. Esse hash confirma a correspondência com o asset publicado, mas não substitui uma assinatura Authenticode nem protege contra comprometimento da conta ou do processo de publicação; o instalador atualmente publicado não possui assinatura Authenticode.
 - O projeto foi estruturado para manter comportamento funcional existente enquanto melhora organização, consistência e manutenção.
 - Não há reescrita de negócio ou introdução de camadas artificiais; os ajustes foram feitos para deixar o repositório profissional e evolutivo sem afetar as funcionalidades do cliente.
 - O build e os testes devem ser executados em ambiente Windows, com plataforma x64, para manter compatibilidade com WinUI 3.

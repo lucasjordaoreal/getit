@@ -85,6 +85,7 @@ public sealed partial class MainPage : Page
         // --- Theme resolution ---
         // Priority: saved user preference > Windows system theme
         _settings = SettingsService.LoadSettings();
+        ViewModel.InputError = SettingsService.LastLoadWarning ?? string.Empty;
 
         string resolvedTheme = _settings.Theme ?? SettingsService.GetWindowsTheme();
         CurrentTheme = resolvedTheme == "Light" ? ElementTheme.Light : ElementTheme.Dark;
@@ -107,4 +108,3 @@ public sealed partial class MainPage : Page
         RequestedTheme = theme;
     }
 }
-

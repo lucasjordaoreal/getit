@@ -32,6 +32,7 @@ public sealed partial class SettingsPage : Page
         _isLoadingSettings = true;
         ThemeToggle.IsOn = MainPage.CurrentTheme == ElementTheme.Light;
         var settings = SettingsService.LoadSettings();
+        ShowPersistenceNotice(SettingsService.LastLoadWarning, InfoBarSeverity.Warning);
         AppAutoUpdateToggle.IsOn = settings.IsAppAutoUpdateEnabled;
         YtDlpAutoUpdateToggle.IsOn = settings.IsYtDlpAutoUpdateEnabled;
         AppVersionText.Text = $"GetIt {AppInfo.CurrentVersion.ToString(3)}";
@@ -46,9 +47,7 @@ public sealed partial class SettingsPage : Page
     {
         if (!_isLoadingSettings && sender is ToggleSwitch toggle)
         {
-            var settings = SettingsService.LoadSettings();
-            settings.IsAppAutoUpdateEnabled = toggle.IsOn;
-            SettingsService.SaveSettings(settings);
+            SaveSettings(settings => settings.IsAppAutoUpdateEnabled = toggle.IsOn);
         }
     }
 
@@ -56,9 +55,7 @@ public sealed partial class SettingsPage : Page
     {
         if (!_isLoadingSettings && sender is ToggleSwitch toggle)
         {
-            var settings = SettingsService.LoadSettings();
-            settings.IsYtDlpAutoUpdateEnabled = toggle.IsOn;
-            SettingsService.SaveSettings(settings);
+            SaveSettings(settings => settings.IsYtDlpAutoUpdateEnabled = toggle.IsOn);
         }
     }
 
@@ -69,9 +66,7 @@ public sealed partial class SettingsPage : Page
             var newTheme = ts.IsOn ? ElementTheme.Light : ElementTheme.Dark;
             MainPage.CurrentTheme = newTheme;
 
-            var settings = SettingsService.LoadSettings();
-            settings.Theme = newTheme == ElementTheme.Light ? "Light" : "Dark";
-            SettingsService.SaveSettings(settings);
+            SaveSettings(settings => settings.Theme = newTheme == ElementTheme.Light ? "Light" : "Dark");
 
             if (this.XamlRoot?.Content is FrameworkElement rootElement)
             {
@@ -79,6 +74,33 @@ public sealed partial class SettingsPage : Page
             }
         }
     }
+
+    private void SaveSettings(Action<AppSettings> update)
+    {
+        try
+        {
+            SettingsService.UpdateSettings(update);
+        }
+        catch (JsonFilePersistenceException)
+        {
+            ShowPersistenceNotice(
+                "Não foi possível salvar as configurações. O arquivo anterior foi preservado; verifique as permissões e o espaço disponível.",
+                InfoBarSeverity.Error);
+        }
+    }
+
+    private void ShowPersistenceNotice(string? message, InfoBarSeverity severity)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+            return;
+
+        PersistenceStatusInfoBar.Severity = severity;
+        PersistenceStatusInfoBar.Message = message;
+        PersistenceStatusInfoBar.IsOpen = true;
+    }
+
+    private void PersistenceStatusInfoBar_Closed(InfoBar sender, InfoBarClosedEventArgs args) =>
+        SettingsService.AcknowledgeLoadWarning();
 
     private async void UpdateYtDlp_Click(object sender, RoutedEventArgs e)
     {
@@ -175,7 +197,7 @@ public sealed partial class SettingsPage : Page
 
         try
         {
-            var release = await UpdateService.CheckForUpdatesAsync();
+            var release = await UpdateService.CheckForUpdatesAsync(_pageLifetime?.Token ?? CancellationToken.None);
             if (release == null)
             {
                 AppUpdateStatusInfoBar.Severity = InfoBarSeverity.Success;
@@ -183,21 +205,15 @@ public sealed partial class SettingsPage : Page
                 return;
             }
 
-            var installer = release.Assets.FirstOrDefault(asset =>
-                string.Equals(asset.Name, $"GetIt-Setup-v{release.TagName}.exe", StringComparison.OrdinalIgnoreCase));
-            if (installer == null)
-            {
-                AppUpdateStatusInfoBar.Severity = InfoBarSeverity.Error;
-                AppUpdateStatusInfoBar.Message = $"O release {release.TagName} não contém o instalador esperado GetIt-Setup-v{release.TagName}.exe.";
-                return;
-            }
+            _ = UpdateService.SelectInstaller(release);
+            var version = GitHubReleaseUpdateClient.ParseStableVersionTag(release.TagName);
 
             AppUpdateStatusInfoBar.Severity = InfoBarSeverity.Success;
-            AppUpdateStatusInfoBar.Message = $"Nova versão {release.TagName} encontrada. Confirme na janela para iniciar a instalação.";
+            AppUpdateStatusInfoBar.Message = $"Nova versão {version} encontrada. Confirme na janela para iniciar a instalação.";
             var dialog = new ContentDialog
             {
                 Title = "Atualização disponível",
-                Content = $"A versão {release.TagName} do GetIt está disponível. Deseja baixar e instalar agora?",
+                Content = $"A versão {version} do GetIt está disponível. Deseja baixá-la e instalar agora?",
                 PrimaryButtonText = "Atualizar",
                 CloseButtonText = "Agora não",
                 DefaultButton = ContentDialogButton.Primary,
@@ -206,14 +222,24 @@ public sealed partial class SettingsPage : Page
 
             if (await dialog.ShowAsync() == ContentDialogResult.Primary)
             {
-                await UpdateService.DownloadAndInstallUpdateAsync(installer.BrowserDownloadUrl);
+                await AppUpdateDownloadDialog.DownloadAndInstallAsync(
+                    release,
+                    XamlRoot,
+                    _pageLifetime?.Token ?? CancellationToken.None);
+                AppUpdateStatusInfoBar.Severity = InfoBarSeverity.Success;
+                AppUpdateStatusInfoBar.Message = $"A instalação da versão {version} foi concluída.";
             }
+        }
+        catch (OperationCanceledException)
+        {
+            AppUpdateStatusInfoBar.Severity = InfoBarSeverity.Warning;
+            AppUpdateStatusInfoBar.Message = "A atualização foi cancelada.";
         }
         catch (Exception ex)
         {
             AppLogger.LogException(ex, "Manual app update check failed");
             AppUpdateStatusInfoBar.Severity = InfoBarSeverity.Error;
-            AppUpdateStatusInfoBar.Message = $"Não foi possível verificar atualizações: {ex.Message}";
+            AppUpdateStatusInfoBar.Message = $"Não foi possível concluir a atualização do GetIt: {ex.Message}";
         }
         finally
         {

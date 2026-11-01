@@ -1,8 +1,7 @@
-using System;
-using System.IO;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using Microsoft.Win32;
+using GetIt_App;
 
 namespace GetIt_App.Services;
 
@@ -24,46 +23,65 @@ public class AppSettings
 
 public static class SettingsService
 {
-    private static readonly string SettingsFilePath = Path.Combine(AppInfo.AppDataDirectory, "settings.json");
+    private static readonly AtomicJsonFileStore<AppSettings> Store = new(
+        Path.Combine(AppInfo.AppDataDirectory, "settings.json"),
+        new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+        });
+
+    public static string? LastLoadWarning { get; private set; }
+
+    public static void AcknowledgeLoadWarning() => LastLoadWarning = null;
 
     public static AppSettings LoadSettings()
     {
         try
         {
-            if (File.Exists(SettingsFilePath))
-            {
-                var json = File.ReadAllText(SettingsFilePath);
-                return JsonSerializer.Deserialize<AppSettings>(json) ?? new AppSettings();
-            }
+            var result = Store.Load(CreateDefaultSettings);
+            SetRecoveryWarning(result.WasRecovered);
+            return result.Value;
         }
-        catch (Exception ex)
+        catch (JsonFilePersistenceException exception)
         {
-            AppLogger.LogException(ex, "Failed to load settings");
+            AppLogger.LogException(exception, "Failed to load settings");
+            LastLoadWarning = "As configurações não puderam ser recuperadas. O arquivo original foi preservado; verifique os arquivos de backup na pasta de dados do GetIt.";
+            return CreateDefaultSettings();
         }
-
-        return new AppSettings
-        {
-            LastDownloadFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads")
-        };
     }
 
     public static void SaveSettings(AppSettings settings)
     {
+        ArgumentNullException.ThrowIfNull(settings);
         try
         {
-            var dir = Path.GetDirectoryName(SettingsFilePath);
-            if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
-
-            var json = JsonSerializer.Serialize(settings, new JsonSerializerOptions
-            {
-                WriteIndented = true,
-                Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-            });
-            File.WriteAllText(SettingsFilePath, json);
+            var result = Store.Save(settings);
+            SetRecoveryWarning(result.WasRecovered);
         }
-        catch (Exception ex)
+        catch (JsonFilePersistenceException exception)
         {
-            AppLogger.LogException(ex, "Failed to save settings");
+            AppLogger.LogException(exception, "Failed to save settings");
+            throw;
+        }
+    }
+
+    public static void UpdateSettings(Action<AppSettings> update)
+    {
+        ArgumentNullException.ThrowIfNull(update);
+        try
+        {
+            var result = Store.UpdateAsync(settings =>
+            {
+                update(settings);
+                return settings;
+            }, CreateDefaultSettings).GetAwaiter().GetResult();
+            SetRecoveryWarning(result.WasRecovered);
+        }
+        catch (JsonFilePersistenceException exception)
+        {
+            AppLogger.LogException(exception, "Failed to update settings");
+            throw;
         }
     }
 
@@ -80,11 +98,27 @@ public static class SettingsService
             if (key?.GetValue("AppsUseLightTheme") is int value && value == 1)
                 return "Light";
         }
-        catch (Exception ex)
+        catch (Exception exception)
         {
-            AppLogger.LogException(ex, "Failed to read Windows theme");
+            AppLogger.LogException(exception, "Failed to read Windows theme");
         }
 
         return "Dark";
+    }
+
+    private static AppSettings CreateDefaultSettings() => new()
+    {
+        LastDownloadFolder = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            "Downloads")
+    };
+
+    private static void SetRecoveryWarning(bool wasRecovered)
+    {
+        if (wasRecovered)
+        {
+            AppLogger.LogWarning("Application settings were recovered from a local recovery file.");
+            LastLoadWarning = "As configurações foram recuperadas de uma cópia local. Confira suas preferências.";
+        }
     }
 }
