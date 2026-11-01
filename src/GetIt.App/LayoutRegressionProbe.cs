@@ -86,7 +86,7 @@ internal static class LayoutRegressionProbe
                 report.Check("add/duplicate-rejected", commandModel.DownloadQueue.Count == 1 && commandModel.InputError.Length > 0);
                 report.Check("add/single-metadata-request", metadataService.Calls == 1);
             }
-            finally { commandModel.Shutdown(); }
+            finally { await commandModel.ShutdownAsync(); }
 
             viewModel.DownloadQueue.Clear();
             viewModel.DownloadFolder = @"G:\" + string.Concat(Enumerable.Repeat("pasta-com-nome-muito-comprido\\", 80));

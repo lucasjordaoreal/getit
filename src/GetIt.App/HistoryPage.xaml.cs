@@ -11,6 +11,8 @@ namespace GetIt_App;
 
 public sealed partial class HistoryPage : Page
 {
+    private List<HistoryItem> _allHistory = [];
+
     public HistoryPage()
     {
         this.InitializeComponent();
@@ -35,7 +37,7 @@ public sealed partial class HistoryPage : Page
 
     private async System.Threading.Tasks.Task LoadHistoryAsync()
     {
-        var history = await HistoryService.LoadHistoryAsync();
+        _allHistory = await HistoryService.LoadHistoryAsync();
         var persistenceWarning = HistoryService.LastLoadWarning;
         HistoryPersistenceInfoBar.IsOpen = !string.IsNullOrWhiteSpace(persistenceWarning);
         if (persistenceWarning is not null)
@@ -45,12 +47,44 @@ public sealed partial class HistoryPage : Page
                 ? InfoBarSeverity.Warning
                 : InfoBarSeverity.Error;
         }
-        HistoryList.ItemsSource = history;
-        var hasHistory = history.Count > 0;
-        HistoryList.Visibility = hasHistory ? Visibility.Visible : Visibility.Collapsed;
-        HistoryEmptyState.Visibility = hasHistory ? Visibility.Collapsed : Visibility.Visible;
-        ClearHistoryButton.Visibility = hasHistory ? Visibility.Visible : Visibility.Collapsed;
+        UpdateHistoryView();
     }
+
+    private void UpdateHistoryView()
+    {
+        var selectedFilter = HistoryFilterComboBox.SelectedIndex switch
+        {
+            1 => HistoryMediaFilter.Videos,
+            2 => HistoryMediaFilter.Audios,
+            _ => HistoryMediaFilter.All
+        };
+        var visibleHistory = HistoryFilterPolicy.Filter(_allHistory, HistorySearchBox.Text, selectedFilter);
+        HistoryList.ItemsSource = visibleHistory;
+        var hasHistory = _allHistory.Count > 0;
+        var hasVisibleItems = visibleHistory.Count > 0;
+        HistoryList.Visibility = hasVisibleItems ? Visibility.Visible : Visibility.Collapsed;
+        HistoryEmptyState.Visibility = hasVisibleItems ? Visibility.Collapsed : Visibility.Visible;
+        HistoryEmptyTitle.Text = hasHistory ? "Nenhum resultado encontrado" : "Nenhum download ainda";
+        HistoryEmptyDescription.Text = hasHistory
+            ? "Altere a pesquisa ou o filtro para ver outros downloads."
+            : "As mídias concluídas aparecerão aqui.";
+        ClearHistoryButton.Visibility = hasHistory ? Visibility.Visible : Visibility.Collapsed;
+        HistorySearchBox.Visibility = hasHistory ? Visibility.Visible : Visibility.Collapsed;
+        HistoryFilterComboBox.Visibility = hasHistory ? Visibility.Visible : Visibility.Collapsed;
+        ClearSearchButton.Visibility = hasHistory && !string.IsNullOrWhiteSpace(HistorySearchBox.Text)
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+    }
+
+    private void HistorySearchBox_TextChanged(object sender, TextChangedEventArgs e) => UpdateHistoryView();
+
+    private void HistoryFilterComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (HistoryEmptyTitle is not null)
+            UpdateHistoryView();
+    }
+
+    private void ClearSearch_Click(object sender, RoutedEventArgs e) => HistorySearchBox.Text = string.Empty;
 
     private async void ClearHistory_Click(object sender, RoutedEventArgs e)
     {
@@ -70,6 +104,7 @@ public sealed partial class HistoryPage : Page
         try
         {
             await HistoryService.ClearHistoryAsync();
+            _allHistory.Clear();
             await LoadHistoryAsync();
         }
         catch (JsonFilePersistenceException)

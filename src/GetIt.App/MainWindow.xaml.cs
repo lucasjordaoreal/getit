@@ -27,10 +27,11 @@ public sealed partial class MainWindow : Window
         {
             if (args.Content is MainPage page) _downloadPage = page;
         };
-        Closed += (_, _) =>
+        Closed += async (_, _) =>
         {
             AppWindow.Changed -= AppWindow_Changed;
-            _downloadPage?.ViewModel.Shutdown();
+            if (_downloadPage is not null)
+                await _downloadPage.ViewModel.ShutdownAsync();
         };
     }
 

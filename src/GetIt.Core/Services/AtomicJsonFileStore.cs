@@ -144,6 +144,33 @@ public sealed class AtomicJsonFileStore<T> where T : class
         }
     }
 
+    public async Task DeleteAsync()
+    {
+        await _pathLock.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            using var crossProcessLock = await AcquireCrossProcessLockAsync().ConfigureAwait(false);
+            foreach (var path in GetBackupPaths()
+                .Concat(GetTemporaryPaths())
+                .Concat(GetCorruptPaths())
+                .Append(_filePath))
+            {
+                if (_fileSystem.FileExists(path))
+                    _fileSystem.DeleteFile(path);
+            }
+        }
+        catch (Exception exception)
+        {
+            throw new JsonFilePersistenceException(
+                "The stored data could not be discarded safely. Existing files may still be present.",
+                exception);
+        }
+        finally
+        {
+            _pathLock.Release();
+        }
+    }
+
     private async Task<JsonFileLoadResult<T>> LoadCoreAsync(
         Func<T> defaultFactory,
         bool crossProcessLockHeld)
@@ -334,6 +361,17 @@ public sealed class AtomicJsonFileStore<T> where T : class
             .ToList();
     }
 
+    private List<string> GetCorruptPaths()
+    {
+        var directory = Path.GetDirectoryName(_filePath);
+        if (directory is null || !_fileSystem.DirectoryExists(directory))
+            return [];
+
+        return _fileSystem.EnumerateFiles(directory, Path.GetFileName(_filePath) + ".corrupt.*")
+            .Where(IsManagedCorruptPath)
+            .ToList();
+    }
+
     private bool IsManagedBackupPath(string path)
     {
         var marker = Path.GetFileName(_filePath) + ".bak.";
@@ -361,6 +399,20 @@ public sealed class AtomicJsonFileStore<T> where T : class
 
         var identifier = name[marker.Length..^4];
         return Guid.TryParseExact(identifier, "N", out _);
+    }
+
+    private bool IsManagedCorruptPath(string path)
+    {
+        var marker = Path.GetFileName(_filePath) + ".corrupt.";
+        var name = Path.GetFileName(path);
+        if (!name.StartsWith(marker, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        var suffix = name[marker.Length..];
+        var separator = suffix.IndexOf('.');
+        return separator > 0 && separator < suffix.Length - 1
+            && long.TryParse(suffix[..separator], NumberStyles.None, CultureInfo.InvariantCulture, out _)
+            && Guid.TryParseExact(suffix[(separator + 1)..], "N", out _);
     }
 
     private long GetBackupSequence(string path)

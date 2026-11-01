@@ -35,6 +35,7 @@ public sealed partial class SettingsPage : Page
         ShowPersistenceNotice(SettingsService.LastLoadWarning, InfoBarSeverity.Warning);
         AppAutoUpdateToggle.IsOn = settings.IsAppAutoUpdateEnabled;
         YtDlpAutoUpdateToggle.IsOn = settings.IsYtDlpAutoUpdateEnabled;
+        RestoreQueueToggle.IsOn = settings.RestoreQueueOnStartup;
         AppVersionText.Text = $"GetIt {AppInfo.CurrentVersion.ToString(3)}";
         _isLoadingSettings = false;
         _pageLifetime?.Cancel();
@@ -57,6 +58,12 @@ public sealed partial class SettingsPage : Page
         {
             SaveSettings(settings => settings.IsYtDlpAutoUpdateEnabled = toggle.IsOn);
         }
+    }
+
+    private void RestoreQueueToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (!_isLoadingSettings && sender is ToggleSwitch toggle)
+            SaveSettings(settings => settings.RestoreQueueOnStartup = toggle.IsOn);
     }
 
     private void ThemeToggle_Toggled(object sender, RoutedEventArgs e)

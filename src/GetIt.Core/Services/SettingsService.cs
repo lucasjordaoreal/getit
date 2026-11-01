@@ -19,6 +19,8 @@ public class AppSettings
     public bool IsAppAutoUpdateEnabled { get; set; } = true;
 
     public bool IsYtDlpAutoUpdateEnabled { get; set; } = true;
+
+    public bool RestoreQueueOnStartup { get; set; }
 }
 
 public static class SettingsService
@@ -32,6 +34,7 @@ public static class SettingsService
         });
 
     public static string? LastLoadWarning { get; private set; }
+    public static event Action<bool>? QueuePersistenceSettingChanged;
 
     public static void AcknowledgeLoadWarning() => LastLoadWarning = null;
 
@@ -58,6 +61,7 @@ public static class SettingsService
         {
             var result = Store.Save(settings);
             SetRecoveryWarning(result.WasRecovered);
+            QueuePersistenceSettingChanged?.Invoke(settings.RestoreQueueOnStartup);
         }
         catch (JsonFilePersistenceException exception)
         {
@@ -77,6 +81,7 @@ public static class SettingsService
                 return settings;
             }, CreateDefaultSettings).GetAwaiter().GetResult();
             SetRecoveryWarning(result.WasRecovered);
+            QueuePersistenceSettingChanged?.Invoke(result.Value.RestoreQueueOnStartup);
         }
         catch (JsonFilePersistenceException exception)
         {

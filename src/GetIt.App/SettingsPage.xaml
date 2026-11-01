@@ -90,6 +90,15 @@
                                     Visibility="Collapsed" MinHeight="40" HorizontalAlignment="Left" Background="{ThemeResource AppAccentBrush}"
                                     Foreground="{ThemeResource AppAccentTextBrush}" />
                             <InfoBar x:Name="UpdateStatusInfoBar" IsOpen="False" IsClosable="False" />
+                            <Border Height="1" Background="{ThemeResource AppBorderBrush}" Margin="0,8" />
+                            <TextBlock Text="Fila de downloads" FontSize="17" FontWeight="SemiBold"
+                                       Foreground="{ThemeResource AppTextBrush}" />
+                            <ToggleSwitch x:Name="RestoreQueueToggle" Header="Restaurar fila ao iniciar"
+                                          OffContent="Desativado" OnContent="Ativado"
+                                          Toggled="RestoreQueueToggle_Toggled" />
+                            <TextBlock Text="Permite recuperar links e preferências de downloads pendentes quando você abrir o GetIt novamente."
+                                       FontSize="13" Foreground="{ThemeResource AppSecondaryTextBrush}"
+                                       TextWrapping="Wrap" />
                         </StackPanel>
                     </StackPanel>
                 </Border>

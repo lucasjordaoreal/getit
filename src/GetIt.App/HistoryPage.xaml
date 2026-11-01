@@ -44,17 +44,50 @@
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
                 
-                <Grid Margin="20,18,20,10">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Text="Histórico" FontWeight="Bold" FontSize="24" Foreground="{ThemeResource AppTextBrush}" VerticalAlignment="Center" />
-                    <Button x:Name="ClearHistoryButton" Grid.Column="1" Content="Limpar" Click="ClearHistory_Click" MinHeight="40"
-                            Background="{ThemeResource AppCardBrush}" Foreground="{ThemeResource AppErrorBrush}"
-                            CornerRadius="6" Padding="12,6" FontWeight="SemiBold"
-                            BorderBrush="{ThemeResource AppBorderBrush}" BorderThickness="1" VerticalAlignment="Center"
-                            Visibility="Collapsed" />
+                <Grid Margin="20,18,20,10" RowSpacing="12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Histórico" FontWeight="Bold" FontSize="24"
+                                   Foreground="{ThemeResource AppTextBrush}" VerticalAlignment="Center" />
+                        <Button x:Name="ClearHistoryButton" Grid.Column="1" Content="Limpar" Click="ClearHistory_Click" MinHeight="40"
+                                Background="{ThemeResource AppCardBrush}" Foreground="{ThemeResource AppErrorBrush}"
+                                CornerRadius="6" Padding="12,6" FontWeight="SemiBold"
+                                BorderBrush="{ThemeResource AppBorderBrush}" BorderThickness="1" VerticalAlignment="Center"
+                                Visibility="Collapsed" />
+                    </Grid>
+                    <Grid Grid.Row="1" ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="HistorySearchBox" PlaceholderText="Pesquisar título ou URL"
+                                 AutomationProperties.Name="Pesquisar histórico por título ou URL"
+                                 TextChanged="HistorySearchBox_TextChanged"
+                                 MinWidth="0" MinHeight="40" CornerRadius="8" Padding="10,6"
+                                 Background="{ThemeResource AppInputBrush}" Foreground="{ThemeResource AppTextBrush}"
+                                 BorderBrush="{ThemeResource AppBorderBrush}" />
+                        <ComboBox x:Name="HistoryFilterComboBox" Grid.Column="1" SelectedIndex="0"
+                                  SelectionChanged="HistoryFilterComboBox_SelectionChanged"
+                                  AutomationProperties.Name="Filtrar histórico por tipo"
+                                  MinWidth="118" MinHeight="40">
+                            <ComboBoxItem Content="Todos" />
+                            <ComboBoxItem Content="Vídeos" />
+                            <ComboBoxItem Content="Áudios" />
+                        </ComboBox>
+                        <Button x:Name="ClearSearchButton" Grid.Column="2" Content="Limpar busca"
+                                Click="ClearSearch_Click" MinHeight="40" Padding="10,6"
+                                Visibility="Collapsed" AutomationProperties.Name="Limpar pesquisa"
+                                Background="{ThemeResource AppCardBrush}" Foreground="{ThemeResource AppTextBrush}"
+                                BorderBrush="{ThemeResource AppBorderBrush}" BorderThickness="1" CornerRadius="8" />
+                    </Grid>
                 </Grid>
 
                 <Grid Grid.Row="1">
@@ -78,11 +111,19 @@
                                             <TextBlock Text="{x:Bind Title}" ToolTipService.ToolTip="{x:Bind Title}" FontWeight="SemiBold" Foreground="{ThemeResource AppTextBrush}" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxLines="2" />
                                             <TextBlock Text="{x:Bind Url}" ToolTipService.ToolTip="{x:Bind Url}" FontSize="12" Foreground="{ThemeResource AppSecondaryTextBrush}" TextTrimming="CharacterEllipsis" />
                                             <TextBlock Text="{x:Bind DownloadedAtDisplay}" FontSize="12" Foreground="{ThemeResource AppSecondaryTextBrush}" />
+                                            <TextBlock Text="{x:Bind FileStatus}" FontSize="12"
+                                                       Foreground="{ThemeResource AppSecondaryTextBrush}" />
                                         </StackPanel>
                                         <Grid Grid.Row="1" Grid.ColumnSpan="2" ColumnSpacing="8">
                                             <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="40" /><ColumnDefinition Width="100" /></Grid.ColumnDefinitions>
-                                            <Button Grid.Column="1" Click="OpenFolder_Click" Tag="{x:Bind LocalFilePath}" Width="40" Height="40" Padding="0" ToolTipService.ToolTip="Mostrar na pasta" AutomationProperties.Name="Mostrar na pasta"><FontIcon Glyph="&#xE8B7;" FontSize="15" /></Button>
-                                            <Button Grid.Column="2" Content="Reproduzir" Click="PlayVideo_Click" Tag="{x:Bind LocalFilePath}" MinHeight="40" HorizontalAlignment="Stretch" Background="{ThemeResource AppAccentBrush}" Foreground="{ThemeResource AppAccentTextBrush}" />
+                                            <Button Grid.Column="1" Click="OpenFolder_Click" Tag="{x:Bind LocalFilePath}"
+                                                    IsEnabled="{x:Bind IsFileAvailable}"
+                                                    Width="40" Height="40" Padding="0" ToolTipService.ToolTip="Mostrar na pasta"
+                                                    AutomationProperties.Name="Mostrar na pasta"><FontIcon Glyph="&#xE8B7;" FontSize="15" /></Button>
+                                            <Button Grid.Column="2" Content="Reproduzir" Click="PlayVideo_Click" Tag="{x:Bind LocalFilePath}"
+                                                    IsEnabled="{x:Bind IsFileAvailable}"
+                                                    MinHeight="40" HorizontalAlignment="Stretch" Background="{ThemeResource AppAccentBrush}"
+                                                    Foreground="{ThemeResource AppAccentTextBrush}" />
                                         </Grid>
                                     </Grid>
                                 </Border>
@@ -93,9 +134,9 @@
                                     VerticalAlignment="Center" Margin="24">
                             <FontIcon Glyph="&#xE8B7;" FontSize="32" Foreground="{ThemeResource AppSecondaryTextBrush}"
                                       HorizontalAlignment="Center" />
-                            <TextBlock Text="Nenhum download ainda" FontWeight="SemiBold" Foreground="{ThemeResource AppTextBrush}"
+                            <TextBlock x:Name="HistoryEmptyTitle" Text="Nenhum download ainda" FontWeight="SemiBold" Foreground="{ThemeResource AppTextBrush}"
                                        HorizontalAlignment="Center" />
-                            <TextBlock Text="As mídias concluídas aparecerão aqui."
+                            <TextBlock x:Name="HistoryEmptyDescription" Text="As mídias concluídas aparecerão aqui."
                                        Foreground="{ThemeResource AppSecondaryTextBrush}" TextAlignment="Center" TextWrapping="Wrap" />
                         </StackPanel>
                     </Grid>

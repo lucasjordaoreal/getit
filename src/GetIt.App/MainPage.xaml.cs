@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 using System.Text;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -187,7 +186,7 @@ public sealed partial class MainPage : Page
         }
     }
 
-    private void Page_Loaded(object sender, RoutedEventArgs e)
+    private async void Page_Loaded(object sender, RoutedEventArgs e)
     {
         // --- Theme resolution ---
         // Priority: saved user preference > Windows system theme
@@ -198,10 +197,80 @@ public sealed partial class MainPage : Page
         CurrentTheme = resolvedTheme == "Light" ? ElementTheme.Light : ElementTheme.Dark;
 
         ApplyTheme(CurrentTheme);
+        await PromptRestoreQueueAsync();
 #if DEBUG
         if (!LayoutRegressionProbe.IsEnabled)
 #endif
             ViewModel.ActivateClipboardMonitoring();
+    }
+
+    private async Task PromptRestoreQueueAsync()
+    {
+        try
+        {
+            var savedQueue = await ViewModel.LoadSavedQueueAsync();
+            if (savedQueue is null)
+                return;
+
+            var notice = savedQueue.Warning;
+            if (savedQueue.WasRecovered)
+                notice = string.IsNullOrWhiteSpace(notice)
+                    ? "A fila foi recuperada de uma cópia local."
+                    : $"{notice}\nA fila foi recuperada de uma cópia local.";
+
+            var content = $"Há {savedQueue.Snapshot.Items.Count} link(s) pendente(s) salvos. Deseja restaurá-los? " +
+                "Os downloads não serão iniciados automaticamente.";
+            if (!string.IsNullOrWhiteSpace(notice))
+                content += $"\n\n{notice}";
+
+            var dialog = new ContentDialog
+            {
+                Title = "Deseja restaurar sua fila anterior?",
+                Content = content,
+                PrimaryButtonText = "Restaurar fila",
+                SecondaryButtonText = "Descartar fila salva",
+                CloseButtonText = "Agora não",
+                DefaultButton = ContentDialogButton.Primary,
+                XamlRoot = XamlRoot
+            };
+            var result = await dialog.ShowAsync();
+            if (result == ContentDialogResult.Primary)
+            {
+                ViewModel.RestoreSavedQueue(savedQueue.Snapshot);
+                return;
+            }
+
+            if (result != ContentDialogResult.Secondary)
+            {
+                ViewModel.DeferSavedQueueRestoration();
+                return;
+            }
+
+            var confirmation = new ContentDialog
+            {
+                Title = "Descartar a fila salva?",
+                Content = "Somente os links e as preferências salvos da fila serão apagados. Downloads concluídos, arquivos e histórico não serão alterados.",
+                PrimaryButtonText = "Descartar fila",
+                CloseButtonText = "Manter fila salva",
+                DefaultButton = ContentDialogButton.Close,
+                XamlRoot = XamlRoot
+            };
+            if (await confirmation.ShowAsync() == ContentDialogResult.Primary)
+            {
+                await ViewModel.DiscardSavedQueueAsync();
+                ViewModel.InputError = "A fila salva foi descartada.";
+            }
+        }
+        catch (JsonFilePersistenceException exception)
+        {
+            AppLogger.LogException(exception, "Could not read the saved download queue");
+            ViewModel.InputError = "A fila salva não pôde ser recuperada com segurança. O arquivo original foi preservado; verifique a pasta de dados do GetIt.";
+        }
+        catch (Exception exception)
+        {
+            AppLogger.LogException(exception, "Could not restore the saved download queue");
+            ViewModel.InputError = "Não foi possível restaurar a fila salva. Os arquivos existentes foram preservados.";
+        }
     }
 
     /// <summary>Applies a theme to this page.</summary>

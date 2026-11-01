@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -23,6 +24,7 @@ public partial class MainPageViewModel : ObservableObject
 {
     private readonly IDownloadService _downloadService;
     private readonly DownloadQueueService _queueService;
+    private readonly DownloadQueuePersistenceService _queuePersistenceService;
     private readonly Microsoft.UI.Dispatching.DispatcherQueue _dispatcherQueue;
     private readonly HashSet<DownloadItemViewModel> _observedItems = new();
     private string _lastClipboardText = string.Empty;
@@ -31,6 +33,11 @@ public partial class MainPageViewModel : ObservableObject
     private bool _isReadingClipboard;
     private bool _isInitializing = true;
     private bool _isShuttingDown;
+    private bool _queueRestoreInitialized;
+    private bool _queuePersistenceReady;
+    private CancellationTokenSource? _queueSaveDebounce;
+    private Task _queueSaveTask = Task.CompletedTask;
+    private TaskCompletionSource? _queueOperationFinished;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanAddUrl))]
@@ -42,6 +49,8 @@ public partial class MainPageViewModel : ObservableObject
 
     [ObservableProperty]
     public partial DownloadPresetOption? SelectedDownloadPreset { get; set; } = DownloadPresetPolicy.Options[0];
+
+    public bool IsQueuePersistenceEnabled { get; private set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsNotDownloading))]
@@ -120,9 +129,12 @@ public partial class MainPageViewModel : ObservableObject
     {
         _downloadService = downloadService ?? throw new ArgumentNullException(nameof(downloadService));
         _queueService = new DownloadQueueService();
+        _queuePersistenceService = new DownloadQueuePersistenceService();
         _dispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
         DownloadQueue.CollectionChanged += DownloadQueue_CollectionChanged;
         var settings = SettingsService.LoadSettings();
+        IsQueuePersistenceEnabled = settings.RestoreQueueOnStartup;
+        SettingsService.QueuePersistenceSettingChanged += QueuePersistenceSettingChanged;
         DownloadFolder = string.IsNullOrEmpty(settings.LastDownloadFolder)
             ? System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads")
             : settings.LastDownloadFolder;
@@ -288,6 +300,7 @@ public partial class MainPageViewModel : ObservableObject
 
         IsCancelling = false;
         IsDownloadingAll = true;
+        _queueOperationFinished = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         try
         {
             await _queueService.RetryItemAsync(DownloadQueue, item, DownloadFolder, saveAsNewCopy);
@@ -296,6 +309,8 @@ public partial class MainPageViewModel : ObservableObject
         {
             IsDownloadingAll = false;
             IsCancelling = false;
+            _queueOperationFinished.TrySetResult();
+            _queueOperationFinished = null;
         }
     }
 
@@ -328,6 +343,7 @@ public partial class MainPageViewModel : ObservableObject
             _observedItems.Add(added);
         }
         NotifyQueueStateChanged();
+        ScheduleQueueSave();
     }
 
     private void Item_PropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -335,6 +351,17 @@ public partial class MainPageViewModel : ObservableObject
         if (e.PropertyName is nameof(DownloadItemViewModel.IsFetching) or nameof(DownloadItemViewModel.HasMetadata)
             or nameof(DownloadItemViewModel.IsDownloadComplete) or nameof(DownloadItemViewModel.IsDownloading)
             or nameof(DownloadItemViewModel.IsError)) NotifyQueueStateChanged();
+
+        if (e.PropertyName == nameof(DownloadItemViewModel.IsDownloadComplete))
+            SaveQueueImmediately();
+        else if (e.PropertyName is nameof(DownloadItemViewModel.IsMp4Selected)
+            or nameof(DownloadItemViewModel.IsMovSelected)
+            or nameof(DownloadItemViewModel.IsMp3Selected)
+            or nameof(DownloadItemViewModel.IsWavSelected)
+            or nameof(DownloadItemViewModel.IsFlacSelected)
+            or nameof(DownloadItemViewModel.SelectedFormat)
+            or nameof(DownloadItemViewModel.SelectedAudioBitrate))
+            ScheduleQueueSave();
     }
 
     private void NotifyQueueStateChanged()
@@ -384,11 +411,14 @@ public partial class MainPageViewModel : ObservableObject
         if (!CanStartDownloads) return;
         IsCancelling = false;
         IsDownloadingAll = true;
+        _queueOperationFinished = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         try { await _queueService.DownloadAllAsync(DownloadQueue, DownloadFolder); }
         finally
         {
             IsDownloadingAll = false;
             IsCancelling = false;
+            _queueOperationFinished.TrySetResult();
+            _queueOperationFinished = null;
         }
     }
 
@@ -400,14 +430,188 @@ public partial class MainPageViewModel : ObservableObject
         _queueService.CancelAll(DownloadQueue);
     }
 
-    public void Shutdown()
+    public async Task ShutdownAsync()
     {
         if (_isShuttingDown) return;
         _isShuttingDown = true;
         DeactivateClipboardMonitoring();
         _queueService.CancelAll(DownloadQueue);
+        if (_queueOperationFinished is { } queueOperationFinished)
+            await queueOperationFinished.Task;
+        SettingsService.QueuePersistenceSettingChanged -= QueuePersistenceSettingChanged;
+        _queueSaveDebounce?.Cancel();
+        _queueSaveDebounce?.Dispose();
+        _queueSaveDebounce = null;
+        try
+        {
+            await _queueSaveTask;
+            if (IsQueuePersistenceEnabled && _queuePersistenceReady)
+                await SaveQueueSnapshotAsync();
+        }
+        catch (JsonFilePersistenceException exception)
+        {
+            AppLogger.LogException(exception, "Failed to persist the download queue during shutdown");
+        }
         foreach (var item in _observedItems) item.PropertyChanged -= Item_PropertyChanged;
         _observedItems.Clear();
         DownloadQueue.CollectionChanged -= DownloadQueue_CollectionChanged;
+    }
+
+    public async Task<DownloadQueueLoadResult?> LoadSavedQueueAsync()
+    {
+        if (!IsQueuePersistenceEnabled || _queueRestoreInitialized)
+            return null;
+
+        _queueRestoreInitialized = true;
+        var result = await _queuePersistenceService.LoadAsync();
+        if (result.Snapshot.Items.Count > 0)
+            return result;
+
+        _queuePersistenceReady = true;
+        ScheduleQueueSave();
+        return null;
+    }
+
+    public void RestoreSavedQueue(DownloadQueueSnapshot snapshot)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        if (_isShuttingDown || !IsQueuePersistenceEnabled)
+            return;
+
+        var restoredItems = new List<(DownloadItemViewModel Item, PersistedQueueItem Preferences)>();
+        foreach (var preferences in snapshot.Items)
+        {
+            if (DownloadQueue.Any(item => string.Equals(item.Url, preferences.Url, StringComparison.Ordinal)))
+                continue;
+
+            var item = CreateQueueItem(preferences.Url);
+            item.RestoreQueuePreferences(preferences);
+            restoredItems.Add((item, preferences));
+        }
+
+        _queueRestoreInitialized = true;
+        _queuePersistenceReady = true;
+        _ = FetchRestoredMetadataAsync(restoredItems);
+    }
+
+    public async Task DiscardSavedQueueAsync()
+    {
+        await _queuePersistenceService.DiscardAsync();
+        _queueRestoreInitialized = true;
+        _queuePersistenceReady = true;
+        ScheduleQueueSave();
+    }
+
+    public void DeferSavedQueueRestoration()
+    {
+        _queueRestoreInitialized = true;
+        _queuePersistenceReady = false;
+        InputError = "A fila salva foi mantida. Restaure ou descarte-a para salvar alterações da fila atual.";
+    }
+
+    private async Task FetchRestoredMetadataAsync(
+        IReadOnlyCollection<(DownloadItemViewModel Item, PersistedQueueItem Preferences)> items)
+    {
+        await Task.WhenAll(items.Select(async entry =>
+        {
+            await entry.Item.FetchMetadataAsync();
+            if (entry.Item.IsError)
+                entry.Item.StatusMessage = "Não foi possível atualizar os dados deste link. Tente analisar novamente.";
+        }));
+        if (!_isShuttingDown && _downloadService is IDownloadEngineHealthProvider engineHealthProvider)
+            await CheckEngineHealthAsync(engineHealthProvider);
+        ScheduleQueueSave();
+    }
+
+    private void QueuePersistenceSettingChanged(bool enabled)
+    {
+        if (_dispatcherQueue.HasThreadAccess)
+        {
+            ApplyQueuePersistenceSetting(enabled);
+            return;
+        }
+
+        _dispatcherQueue.TryEnqueue(() => ApplyQueuePersistenceSetting(enabled));
+    }
+
+    private void ApplyQueuePersistenceSetting(bool enabled)
+    {
+        if (_isShuttingDown || IsQueuePersistenceEnabled == enabled)
+            return;
+
+        IsQueuePersistenceEnabled = enabled;
+        _queueRestoreInitialized = false;
+        _queuePersistenceReady = false;
+        if (enabled)
+            return;
+
+        _queueSaveDebounce?.Cancel();
+        _queueSaveDebounce?.Dispose();
+        _queueSaveDebounce = null;
+    }
+
+    private void ScheduleQueueSave()
+    {
+        if (!IsQueuePersistenceEnabled || !_queuePersistenceReady || _isShuttingDown)
+            return;
+
+        _queueSaveDebounce?.Cancel();
+        _queueSaveDebounce?.Dispose();
+        _queueSaveDebounce = new CancellationTokenSource();
+        _queueSaveTask = SaveQueueAfterDelayAsync(_queueSaveDebounce.Token);
+    }
+
+    private void SaveQueueImmediately()
+    {
+        if (!IsQueuePersistenceEnabled || !_queuePersistenceReady || _isShuttingDown)
+            return;
+
+        _queueSaveDebounce?.Cancel();
+        _queueSaveDebounce?.Dispose();
+        _queueSaveDebounce = null;
+        _queueSaveTask = SaveQueueImmediatelyAsync();
+    }
+
+    private async Task SaveQueueImmediatelyAsync()
+    {
+        try
+        {
+            await SaveQueueSnapshotAsync();
+        }
+        catch (JsonFilePersistenceException exception)
+        {
+            AppLogger.LogException(exception, "Failed to persist a completed download state");
+            InputError = "Não foi possível atualizar a fila salva. A cópia anterior foi preservada; verifique permissões e espaço disponível.";
+        }
+    }
+
+    private async Task SaveQueueAfterDelayAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(350), cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            await SaveQueueSnapshotAsync();
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (JsonFilePersistenceException exception)
+        {
+            AppLogger.LogException(exception, "Failed to persist the download queue");
+            InputError = "Não foi possível salvar a fila. A cópia anterior foi preservada; verifique permissões e espaço disponível.";
+        }
+    }
+
+    private Task SaveQueueSnapshotAsync()
+    {
+        var snapshot = new DownloadQueueSnapshot
+        {
+            Items = DownloadQueue
+                .Where(item => !item.IsDownloadComplete)
+                .Select(item => item.CaptureQueuePreferences())
+                .ToList()
+        };
+        return _queuePersistenceService.SaveAsync(snapshot);
     }
 }

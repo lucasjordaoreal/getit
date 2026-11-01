@@ -23,6 +23,7 @@ public partial class DownloadItemViewModel : ObservableObject
     private CancellationTokenSource? _thumbnailCts;
     private int _thumbnailRequestId;
     private DownloadPreset _requestedPreset = DownloadPreset.VideoMp4;
+    private PersistedQueueItem? _restoredPreferences;
 
     public string Url { get; }
 
@@ -114,6 +115,49 @@ public partial class DownloadItemViewModel : ObservableObject
 
         if (defaults.AudioBitrate is not null)
             SelectedAudioBitrate = AvailableAudioBitrates.FirstOrDefault(bitrate => bitrate.Value == defaults.AudioBitrate);
+    }
+
+    public PersistedQueueItem CaptureQueuePreferences() => new()
+    {
+        Url = Url,
+        Format = IsMovSelected ? "MOV" :
+            IsMp3Selected ? "MP3" :
+            IsWavSelected ? "WAV" :
+            IsFlacSelected ? "FLAC" : "MP4",
+        VideoFormatId = SelectedFormat?.FormatId,
+        AudioBitrate = SelectedAudioBitrate?.Value ?? "320"
+    };
+
+    public void RestoreQueuePreferences(PersistedQueueItem preferences)
+    {
+        ArgumentNullException.ThrowIfNull(preferences);
+        _restoredPreferences = preferences;
+        _requestedPreset = DownloadPreset.Custom;
+        ApplySavedFormat(preferences.Format);
+        SelectedAudioBitrate = AvailableAudioBitrates.FirstOrDefault(bitrate => bitrate.Value == preferences.AudioBitrate)
+            ?? AvailableAudioBitrates[0];
+    }
+
+    private void ApplySavedFormat(string format)
+    {
+        switch (format)
+        {
+            case "MOV":
+                IsMovSelected = true;
+                break;
+            case "MP3":
+                IsMp3Selected = true;
+                break;
+            case "WAV":
+                IsWavSelected = true;
+                break;
+            case "FLAC":
+                IsFlacSelected = true;
+                break;
+            default:
+                IsMp4Selected = true;
+                break;
+        }
     }
 
     private void ApplyPresetCompatibility(VideoMetadata metadata)
@@ -483,7 +527,7 @@ public partial class DownloadItemViewModel : ObservableObject
             if (meta is null)
                 throw new InvalidOperationException("O site não retornou informações desta mídia. Verifique o link e tente novamente.");
 
-            var previousFormatId = SelectedFormat?.FormatId;
+            var previousFormatId = _restoredPreferences?.VideoFormatId ?? SelectedFormat?.FormatId;
             Metadata = meta;
             var cleanFormats = meta.Formats
                 .Where(f => f.HasVideo && !string.IsNullOrEmpty(f.Resolution) && f.Resolution != "audio only")
@@ -499,7 +543,35 @@ public partial class DownloadItemViewModel : ObservableObject
 
             SelectedFormat = AvailableFormats.FirstOrDefault(format => format.FormatId == previousFormatId)
                 ?? AvailableFormats.FirstOrDefault();
-            ApplyPresetCompatibility(meta);
+            if (_restoredPreferences is { } savedPreferences)
+            {
+                var mediaKind = savedPreferences.Format is "MP3" or "WAV" or "FLAC"
+                    ? DownloadPresetFormat.Mp3
+                    : DownloadPresetFormat.Mp4;
+                var resolution = DownloadPresetPolicy.ResolveFormat(
+                    mediaKind == DownloadPresetFormat.Mp3 ? DownloadPreset.AudioMp3 : DownloadPreset.VideoMp4,
+                    meta.Formats.Any(format => format.HasAudio),
+                    meta.Formats.Any(format => format.HasVideo));
+                if (resolution.Format != mediaKind)
+                {
+                    ApplySavedFormat(resolution.Format == DownloadPresetFormat.Mp3 ? "MP3" : "MP4");
+                    PresetNotice = resolution.Notice ?? string.Empty;
+                }
+                else
+                {
+                    ApplySavedFormat(savedPreferences.Format);
+                    SelectedAudioBitrate = AvailableAudioBitrates.FirstOrDefault(
+                        bitrate => bitrate.Value == savedPreferences.AudioBitrate) ?? AvailableAudioBitrates[0];
+                    PresetNotice = previousFormatId is not null && SelectedFormat?.FormatId != previousFormatId
+                        ? "A qualidade salva não está mais disponível. Selecione uma das opções atuais."
+                        : string.Empty;
+                }
+                _restoredPreferences = null;
+            }
+            else
+            {
+                ApplyPresetCompatibility(meta);
+            }
             StatusMessage = "Pronto.";
             IsError = false;
         }

@@ -2,6 +2,8 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Globalization;
+using System.IO;
+using System.Linq;
 using GetIt_App;
 
 namespace GetIt_App.Services;
@@ -13,6 +15,18 @@ public class HistoryItem
     public string Thumbnail { get; set; } = string.Empty;
     public string LocalFilePath { get; set; } = string.Empty;
     public DateTime DownloadedAt { get; set; }
+
+    [JsonIgnore]
+    public bool IsFileMissing => !File.Exists(LocalFilePath);
+
+    [JsonIgnore]
+    public bool IsFileAvailable => File.Exists(LocalFilePath);
+
+    [JsonIgnore]
+    public string FileStatus => IsFileMissing ? "Arquivo não encontrado" : string.Empty;
+
+    [JsonIgnore]
+    public HistoryMediaKind MediaKind => HistoryFilterPolicy.GetMediaKind(LocalFilePath);
 
     [JsonIgnore]
     public string DownloadedAtDisplay
@@ -30,6 +44,64 @@ public class HistoryItem
             };
             return localTime.ToString("dd/MM/yyyy 'às' HH:mm", CultureInfo.GetCultureInfo("pt-BR"));
         }
+    }
+}
+
+public enum HistoryMediaKind
+{
+    Unknown,
+    Video,
+    Audio
+}
+
+public enum HistoryMediaFilter
+{
+    All,
+    Videos,
+    Audios
+}
+
+public static class HistoryFilterPolicy
+{
+    private static readonly HashSet<string> VideoExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".mp4", ".mov", ".mkv", ".webm", ".avi", ".m4v", ".mpeg", ".mpg", ".wmv", ".ts"
+    };
+
+    private static readonly HashSet<string> AudioExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".mp3", ".wav", ".flac", ".m4a", ".aac", ".ogg", ".opus", ".wma"
+    };
+
+    public static HistoryMediaKind GetMediaKind(string? path)
+    {
+        var extension = Path.GetExtension(path);
+        if (string.IsNullOrEmpty(extension))
+            return HistoryMediaKind.Unknown;
+        if (VideoExtensions.Contains(extension))
+            return HistoryMediaKind.Video;
+        if (AudioExtensions.Contains(extension))
+            return HistoryMediaKind.Audio;
+        return HistoryMediaKind.Unknown;
+    }
+
+    public static IReadOnlyList<HistoryItem> Filter(
+        IEnumerable<HistoryItem> history,
+        string? searchText,
+        HistoryMediaFilter filter)
+    {
+        ArgumentNullException.ThrowIfNull(history);
+        var search = searchText?.Trim();
+        return history
+            .Where(item => item is not null &&
+                (string.IsNullOrEmpty(search) ||
+                    item.Title?.Contains(search, StringComparison.OrdinalIgnoreCase) == true ||
+                    item.Url?.Contains(search, StringComparison.OrdinalIgnoreCase) == true) &&
+                (filter == HistoryMediaFilter.All ||
+                    filter == HistoryMediaFilter.Videos && item.MediaKind == HistoryMediaKind.Video ||
+                    filter == HistoryMediaFilter.Audios && item.MediaKind == HistoryMediaKind.Audio))
+            .OrderByDescending(item => item.DownloadedAt)
+            .ToArray();
     }
 }
 
