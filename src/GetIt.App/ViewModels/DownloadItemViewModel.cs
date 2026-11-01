@@ -22,6 +22,7 @@ public partial class DownloadItemViewModel : ObservableObject
     private CancellationTokenSource? _cts;
     private CancellationTokenSource? _thumbnailCts;
     private int _thumbnailRequestId;
+    private DownloadPreset _requestedPreset = DownloadPreset.VideoMp4;
 
     public string Url { get; }
 
@@ -83,6 +84,65 @@ public partial class DownloadItemViewModel : ObservableObject
     public bool HasMetadata => Metadata != null;
     public string DisplayTitle => string.IsNullOrWhiteSpace(Metadata?.Title) ? Url : Metadata.Title;
     public Microsoft.UI.Xaml.Visibility HasMetadataVisibility => HasMetadata ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PresetNoticeVisibility))]
+    public partial string PresetNotice { get; set; } = string.Empty;
+
+    public Microsoft.UI.Xaml.Visibility PresetNoticeVisibility =>
+        string.IsNullOrWhiteSpace(PresetNotice) ? Microsoft.UI.Xaml.Visibility.Collapsed : Microsoft.UI.Xaml.Visibility.Visible;
+
+    public void ApplyPreset(DownloadPreset preset)
+    {
+        _requestedPreset = preset;
+        PresetNotice = string.Empty;
+        var defaults = DownloadPresetPolicy.GetDefaults(preset);
+        switch (defaults.Format)
+        {
+            case DownloadPresetFormat.Mp4:
+                IsMp4Selected = true;
+                break;
+            case DownloadPresetFormat.Mp3:
+                IsMp3Selected = true;
+                break;
+            case DownloadPresetFormat.Flac:
+                IsFlacSelected = true;
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(preset));
+        }
+
+        if (defaults.AudioBitrate is not null)
+            SelectedAudioBitrate = AvailableAudioBitrates.FirstOrDefault(bitrate => bitrate.Value == defaults.AudioBitrate);
+    }
+
+    private void ApplyPresetCompatibility(VideoMetadata metadata)
+    {
+        var hasAudio = metadata.Formats.Any(format => format.HasAudio);
+        var hasVideo = metadata.Formats.Any(format => format.HasVideo);
+        var resolution = DownloadPresetPolicy.ResolveFormat(_requestedPreset, hasAudio, hasVideo);
+        switch (resolution.Format)
+        {
+            case DownloadPresetFormat.Mp4:
+                IsMp4Selected = true;
+                break;
+            case DownloadPresetFormat.Mp3:
+                IsMp3Selected = true;
+                SelectedAudioBitrate = AvailableAudioBitrates.FirstOrDefault(bitrate => bitrate.Value == "320")
+                    ?? AvailableAudioBitrates.FirstOrDefault();
+                break;
+            case DownloadPresetFormat.Flac:
+                IsFlacSelected = true;
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(resolution));
+        }
+
+        PresetNotice = resolution.Notice ??
+            (resolution.Format == DownloadPresetFormat.Mp4 && AvailableFormats.Count == 0
+                ? "O link não informou resoluções de vídeo. Será usada a qualidade compatível recomendada pela engine."
+                : string.Empty);
+    }
 
     partial void OnMetadataChanged(VideoMetadata? value)
     {
@@ -439,6 +499,7 @@ public partial class DownloadItemViewModel : ObservableObject
 
             SelectedFormat = AvailableFormats.FirstOrDefault(format => format.FormatId == previousFormatId)
                 ?? AvailableFormats.FirstOrDefault();
+            ApplyPresetCompatibility(meta);
             StatusMessage = "Pronto.";
             IsError = false;
         }

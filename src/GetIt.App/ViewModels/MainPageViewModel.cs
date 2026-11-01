@@ -38,6 +38,10 @@ public partial class MainPageViewModel : ObservableObject
     public partial string Url { get; set; } = string.Empty;
 
     public ObservableCollection<DownloadItemViewModel> DownloadQueue { get; } = new();
+    public IReadOnlyList<DownloadPresetOption> AvailableDownloadPresets => DownloadPresetPolicy.Options;
+
+    [ObservableProperty]
+    public partial DownloadPresetOption? SelectedDownloadPreset { get; set; } = DownloadPresetPolicy.Options[0];
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsNotDownloading))]
@@ -226,11 +230,55 @@ public partial class MainPageViewModel : ObservableObject
             return;
         }
         Url = string.Empty;
+        var item = CreateQueueItem(link);
+        _ = FetchMetadataAndRefreshEngineAsync(item);
+    }
+
+    public BatchUrlPreview PreviewBatchUrls(string? input) =>
+        BatchUrlPolicy.CreatePreview(input, DownloadQueue.Select(item => item.Url));
+
+    public int AddBatchUrls(string? input)
+    {
+        if (_isShuttingDown || IsDownloadingAll)
+            return 0;
+
+        var preview = PreviewBatchUrls(input);
+        if (preview.IsOverLimit)
+        {
+            InputError = $"O lote contém {preview.NonEmptyLineCount} links. O limite é {BatchUrlPolicy.MaximumLinks}; divida-o em lotes menores.";
+            return 0;
+        }
+
+        var readyUrls = new List<string>();
+        foreach (var entry in preview.Entries)
+        {
+            if (entry.Status == BatchUrlStatus.Ready && entry.NormalizedUrl is { } normalizedUrl)
+                readyUrls.Add(normalizedUrl);
+        }
+
+        if (readyUrls.Count == 0)
+        {
+            InputError = "Nenhum link válido e novo para adicionar. Confira a prévia e tente novamente.";
+            return 0;
+        }
+
+        var addedItems = new List<DownloadItemViewModel>(readyUrls.Count);
+        foreach (var url in readyUrls)
+            addedItems.Add(CreateQueueItem(url));
+
+        InputError = string.Empty;
+        _ = FetchBatchMetadataAndRefreshEngineAsync(addedItems);
+        return addedItems.Count;
+    }
+
+    private DownloadItemViewModel CreateQueueItem(string link)
+    {
         var item = new DownloadItemViewModel(link, _downloadService);
+        item.ApplyPreset(SelectedDownloadPreset?.Preset ?? DownloadPreset.VideoMp4);
         item.OnRemoveRequested = i => DownloadQueue.Remove(i);
         item.OnRetryDownloadRequested = RetryDownloadAsync;
         DownloadQueue.Add(item);
-        _ = FetchMetadataAndRefreshEngineAsync(item);
+        return item;
     }
 
     private async Task RetryDownloadAsync(DownloadItemViewModel item, bool saveAsNewCopy)
@@ -258,6 +306,13 @@ public partial class MainPageViewModel : ObservableObject
         {
             await CheckEngineHealthAsync(engineHealthProvider);
         }
+    }
+
+    private async Task FetchBatchMetadataAndRefreshEngineAsync(IReadOnlyCollection<DownloadItemViewModel> items)
+    {
+        await Task.WhenAll(items.Select(item => item.FetchMetadataAsync()));
+        if (!_isShuttingDown && _downloadService is IDownloadEngineHealthProvider engineHealthProvider)
+            await CheckEngineHealthAsync(engineHealthProvider);
     }
 
     private void DownloadQueue_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)

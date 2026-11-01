@@ -61,13 +61,43 @@
                     BorderThickness="1" 
                     CornerRadius="10"
                     Padding="12">
-                <Grid>
+                <Grid RowSpacing="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
                     <Grid.Transitions>
                         <TransitionCollection>
                             <AddDeleteThemeTransition />
                         </TransitionCollection>
                     </Grid.Transitions>
-                    <Grid ColumnSpacing="10">
+                    <Grid Grid.Row="0" ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <ComboBox Header="Preset para novos links"
+                                  ItemsSource="{x:Bind ViewModel.AvailableDownloadPresets, Mode=OneWay}"
+                                  SelectedItem="{x:Bind ViewModel.SelectedDownloadPreset, Mode=TwoWay}"
+                                  DisplayMemberPath="Name" MinWidth="220" Width="280"
+                                  IsEnabled="{x:Bind ViewModel.IsNotDownloading, Mode=OneWay}"
+                                  AutomationProperties.Name="Preset de download para novos links" />
+                        <Button Grid.Column="1" Click="AddMultipleLinks_Click"
+                                IsEnabled="{x:Bind ViewModel.IsNotDownloading, Mode=OneWay}"
+                                MinWidth="152" Height="32" MinHeight="32" Padding="10,2"
+                                VerticalAlignment="Bottom" VerticalContentAlignment="Center"
+                                AutomationProperties.Name="Adicionar vários links"
+                                ToolTipService.ToolTip="Colar vários links e revisar antes de adicionar"
+                                Background="{ThemeResource AppCardStrongBrush}" Foreground="{ThemeResource AppTextBrush}"
+                                BorderBrush="{ThemeResource AppAccentBrush}" BorderThickness="1" CornerRadius="8">
+                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                <FontIcon Glyph="&#xE8EF;" FontSize="15" Foreground="{ThemeResource AppAccentBrush}" />
+                                <TextBlock Text="Vários links" FontWeight="SemiBold" />
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+                    <Grid Grid.Row="1" ColumnSpacing="10">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" MinWidth="0" />
                                 <ColumnDefinition Width="84" />
@@ -204,6 +234,10 @@
                                     <ComboBox x:Name="VideoFormatOptions" Grid.Row="1" Grid.ColumnSpan="2" Visibility="{x:Bind IsVideoOptionsVisibility, Mode=OneWay}" ItemsSource="{x:Bind AvailableFormats, Mode=OneWay}" SelectedItem="{x:Bind SelectedFormat, Mode=TwoWay}" DisplayMemberPath="DisplayName" AutomationProperties.Name="Qualidade do vídeo" MinWidth="0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" CornerRadius="12" Padding="10,4" Background="{ThemeResource AppInputBrush}" Foreground="{ThemeResource AppTextBrush}" BorderBrush="{ThemeResource AppBorderBrush}" BorderThickness="1" IsEnabled="{x:Bind CanEditQueue, Mode=OneWay}" />
                                 </Grid>
                                 <StackPanel Grid.Row="3" Grid.ColumnSpan="3" Spacing="8">
+                                    <TextBlock Text="{x:Bind PresetNotice, Mode=OneWay}"
+                                               Visibility="{x:Bind PresetNoticeVisibility, Mode=OneWay}"
+                                               TextWrapping="Wrap" FontSize="12"
+                                               Foreground="{ThemeResource AppSecondaryTextBrush}" />
                                     <TextBlock Text="{x:Bind StatusMessage, Mode=OneWay}" ToolTipService.ToolTip="{x:Bind StatusMessage, Mode=OneWay}" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxLines="3" FontWeight="SemiBold" FontSize="12" Foreground="{ThemeResource AppTextBrush}" />
                                     <StackPanel Orientation="Horizontal" Spacing="6" Visibility="{x:Bind IsDownloadingVisibility, Mode=OneWay}">
                                         <TextBlock Text="{x:Bind Speed, Mode=OneWay}" FontSize="12" Foreground="{ThemeResource AppSecondaryTextBrush}" /><TextBlock Text="•" FontSize="12" Foreground="{ThemeResource AppSecondaryTextBrush}" /><TextBlock Text="Faltam:" FontSize="12" Foreground="{ThemeResource AppSecondaryTextBrush}" /><TextBlock Text="{x:Bind Eta, Mode=OneWay}" FontSize="12" Foreground="{ThemeResource AppSecondaryTextBrush}" />

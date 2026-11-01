@@ -1,4 +1,6 @@
 using System;
+using System.Linq;
+using System.Text;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
@@ -55,6 +57,111 @@ public sealed partial class MainPage : Page
         else if (ViewModel.CanAddUrl && ViewModel.AddUrlCommand.CanExecute(null))
         {
             ViewModel.AddUrlCommand.Execute(null);
+        }
+    }
+
+    private async void AddMultipleLinks_Click(object sender, RoutedEventArgs e)
+    {
+        if (!ViewModel.IsNotDownloading) return;
+
+        var linkInput = new TextBox
+        {
+            AcceptsReturn = true,
+            MinHeight = 150,
+            MaxHeight = 260,
+            TextWrapping = TextWrapping.Wrap,
+            PlaceholderText = "Cole um link por linha"
+        };
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(linkInput, "Links para adicionar");
+        ScrollViewer.SetVerticalScrollBarVisibility(linkInput, ScrollBarVisibility.Auto);
+        var summary = new TextBlock
+        {
+            TextWrapping = TextWrapping.Wrap,
+            FontSize = 13
+        };
+        var details = new TextBlock
+        {
+            TextWrapping = TextWrapping.Wrap,
+            FontSize = 12
+        };
+        var content = new StackPanel { Spacing = 12, MinWidth = 340 };
+        content.Children.Add(new TextBlock
+        {
+            Text = "Cada linha será revisada antes de entrar na fila. Nenhum download começa automaticamente.",
+            TextWrapping = TextWrapping.Wrap
+        });
+        content.Children.Add(linkInput);
+        content.Children.Add(summary);
+        content.Children.Add(new ScrollViewer
+        {
+            Content = details,
+            MaxHeight = 180,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
+        });
+
+        var dialog = new ContentDialog
+        {
+            Title = "Adicionar vários links",
+            Content = content,
+            PrimaryButtonText = "Adicionar links válidos",
+            SecondaryButtonText = "Cancelar",
+            DefaultButton = ContentDialogButton.Primary,
+            XamlRoot = XamlRoot
+        };
+
+        void UpdatePreview()
+        {
+            var preview = ViewModel.PreviewBatchUrls(linkInput.Text);
+            summary.Text = $"Links encontrados: {preview.NonEmptyLineCount}\n" +
+                $"{preview.ReadyCount} válidos · {preview.DuplicateInBatchCount + preview.AlreadyInQueueCount} duplicados · " +
+                $"{preview.InvalidCount} inválidos";
+            if (preview.IsOverLimit)
+                summary.Text += $"\nO limite é {BatchUrlPolicy.MaximumLinks} links. A classificação abaixo é parcial; divida o lote para continuar.";
+
+            var detailText = new StringBuilder();
+            foreach (var entry in preview.Entries)
+            {
+                var description = entry.Status switch
+                {
+                    BatchUrlStatus.Ready => "Será adicionado",
+                    BatchUrlStatus.DuplicateInBatch => "Duplicado neste lote; será ignorado",
+                    BatchUrlStatus.AlreadyInQueue => "Já está na fila; será ignorado",
+                    _ => "URL inválida"
+                };
+                var value = entry.NormalizedUrl ?? entry.Input;
+                if (value.Length > 180) value = value[..177] + "...";
+                detailText.Append("Linha ").Append(entry.LineNumber).Append(" · ")
+                    .Append(description).Append(": ").AppendLine(value);
+            }
+
+            if (preview.IsOverLimit)
+                detailText.Append("A prévia mostra somente os primeiros ")
+                    .Append(BatchUrlPolicy.MaximumLinks).AppendLine(" links. Reduza a entrada para revisar o lote.");
+            details.Text = detailText.ToString();
+            dialog.IsPrimaryButtonEnabled = preview.ReadyCount > 0 && !preview.IsOverLimit;
+        }
+
+        linkInput.TextChanged += (_, _) => UpdatePreview();
+        dialog.PrimaryButtonClick += (_, args) =>
+        {
+            if (ViewModel.AddBatchUrls(linkInput.Text) == 0)
+            {
+                args.Cancel = true;
+                summary.Text = ViewModel.InputError;
+                UpdatePreview();
+            }
+        };
+        UpdatePreview();
+
+        try
+        {
+            await dialog.ShowAsync();
+        }
+        catch (Exception ex)
+        {
+            AppLogger.LogException(ex, "Failed to show the multiple-links dialog");
+            ViewModel.InputError = "Não foi possível abrir a inclusão de vários links. Tente novamente.";
         }
     }
 
