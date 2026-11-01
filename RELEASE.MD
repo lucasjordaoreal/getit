@@ -1,12 +1,16 @@
 # GetIt v0.1.2
 
 ### ✨ Novidades e melhorias:
+- **Base atualizada:** migração do aplicativo para .NET 10 e Windows App SDK self-contained na publicação x64.
+- **Downloads mais confiáveis:** fila sequencial, isolamento dos arquivos de cada operação, preservação contra sobrescrita acidental e retry de análise e download.
 - **Presets de download:** perfis MP4, MP3 a 320 kbps e FLAC para novos itens, com personalização individual e opções avançadas MOV e WAV.
 - **Links em lote:** pré-visualização de até 50 linhas, com identificação de URLs inválidas e repetidas antes de confirmar a inclusão na fila.
 - **Playlists:** prévia de até 50 vídeos com miniaturas e seleção individual; a inclusão não inicia downloads automaticamente.
 - **Fila e histórico:** restauração opcional da fila sem iniciar downloads, pesquisa e filtros do histórico, e recuperação local de dados JSON.
 - **Interface:** janela redimensionável e maximização nativa, layout adaptável, ajustes de acessibilidade e refinamentos visuais.
 - **Reprodução:** o histórico indica quando um item está tocando, com animação horizontal suave para o rótulo.
+- **Atualizador:** validação do asset oficial do GitHub e do SHA-256 publicado antes de iniciar o instalador; cancelamento disponível durante o download.
+- **Estabilidade:** limites e validação de dados persistidos, recuperação de JSON por cópias locais e tratamento explícito de falhas de engine e atualização.
 
 # 🚀 GetIt - v0.1.1
 
