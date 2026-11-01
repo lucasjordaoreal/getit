@@ -112,6 +112,7 @@ public sealed partial class MainPage : Page
             PrimaryButtonText = "Adicionar links válidos",
             SecondaryButtonText = "Cancelar",
             DefaultButton = ContentDialogButton.Primary,
+            RequestedTheme = CurrentTheme,
             XamlRoot = XamlRoot
         };
 
