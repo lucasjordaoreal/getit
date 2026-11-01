@@ -1,5 +1,7 @@
 using System.Text.Encodings.Web;
 using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Globalization;
 using GetIt_App;
 
 namespace GetIt_App.Services;
@@ -11,6 +13,24 @@ public class HistoryItem
     public string Thumbnail { get; set; } = string.Empty;
     public string LocalFilePath { get; set; } = string.Empty;
     public DateTime DownloadedAt { get; set; }
+
+    [JsonIgnore]
+    public string DownloadedAtDisplay
+    {
+        get
+        {
+            if (DownloadedAt == default)
+                return string.Empty;
+
+            var localTime = DownloadedAt.Kind switch
+            {
+                DateTimeKind.Utc => DownloadedAt.ToLocalTime(),
+                DateTimeKind.Unspecified => DateTime.SpecifyKind(DownloadedAt, DateTimeKind.Local),
+                _ => DownloadedAt
+            };
+            return localTime.ToString("dd/MM/yyyy 'às' HH:mm", CultureInfo.GetCultureInfo("pt-BR"));
+        }
+    }
 }
 
 public static class HistoryService

@@ -38,7 +38,7 @@
 
             <Grid Grid.Row="0" ColumnSpacing="16">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                <StackPanel Spacing="2"><TextBlock Text="Baixar Vídeos" FontSize="28" FontWeight="Bold" Foreground="{ThemeResource AppTextBrush}" /><TextBlock Text="Cole o link do vídeo, escolha o formato e comece o download." TextWrapping="Wrap" FontSize="14" Foreground="{ThemeResource AppSecondaryTextBrush}" /></StackPanel>
+                <StackPanel Spacing="2"><TextBlock Text="Baixar mídia" FontSize="28" FontWeight="Bold" Foreground="{ThemeResource AppTextBrush}" /><TextBlock Text="Cole um link, escolha o formato e comece o download." TextWrapping="Wrap" FontSize="14" Foreground="{ThemeResource AppSecondaryTextBrush}" /></StackPanel>
                 <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.QueueSummary, Mode=OneWay}" Foreground="{ThemeResource AppSecondaryTextBrush}" FontSize="12" TextWrapping="Wrap" MaxWidth="180" VerticalAlignment="Center" />
             </Grid>
 
@@ -61,7 +61,7 @@
                                 <ColumnDefinition Width="40" />
                             </Grid.ColumnDefinitions>
                             
-                            <TextBox x:Name="UrlTextBox" AutomationProperties.Name="Link da mídia" ToolTipService.ToolTip="Ctrl+L: focar link. Enter: adicionar. Ctrl+Enter: baixar fila." PlaceholderText="Cole ou digite um link de vídeo"
+                            <TextBox x:Name="UrlTextBox" AutomationProperties.Name="Link da mídia" ToolTipService.ToolTip="Ctrl+L: focar link. Enter: adicionar. Ctrl+Enter: baixar fila." PlaceholderText="Cole ou digite um link de vídeo ou áudio"
                                      Text="{x:Bind ViewModel.Url, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
                                      KeyDown="UrlTextBox_KeyDown"
                                      IsEnabled="{x:Bind ViewModel.IsNotDownloading, Mode=OneWay}" 
@@ -177,6 +177,23 @@
                                             <TextBlock Text="{x:Bind Speed, Mode=OneWay}" FontSize="11" Foreground="{ThemeResource AppSecondaryTextBrush}" /><TextBlock Text="•" FontSize="11" Foreground="{ThemeResource AppSecondaryTextBrush}" /><TextBlock Text="Faltam:" FontSize="11" Foreground="{ThemeResource AppSecondaryTextBrush}" /><TextBlock Text="{x:Bind Eta, Mode=OneWay}" FontSize="11" Foreground="{ThemeResource AppSecondaryTextBrush}" />
                                         </StackPanel>
                                     </Grid>
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <Button Content="Tentar análise novamente" Command="{x:Bind RetryAnalysisCommand}"
+                                                Visibility="{x:Bind RetryAnalysisVisibility, Mode=OneWay}"
+                                                AutomationProperties.Name="Tentar análise novamente" Padding="10,5" CornerRadius="6"
+                                                Background="{ThemeResource AppInputBrush}" Foreground="{ThemeResource AppTextBrush}"
+                                                BorderBrush="{ThemeResource AppBorderBrush}" BorderThickness="1" />
+                                        <Button Content="Tentar novamente" Command="{x:Bind RetryDownloadCommand}"
+                                                Visibility="{x:Bind RetryDownloadVisibility, Mode=OneWay}"
+                                                AutomationProperties.Name="Tentar novamente" Padding="10,5" CornerRadius="6"
+                                                Background="{ThemeResource AppInputBrush}" Foreground="{ThemeResource AppTextBrush}"
+                                                BorderBrush="{ThemeResource AppBorderBrush}" BorderThickness="1" />
+                                        <Button Content="Salvar outra cópia" Command="{x:Bind SaveAnotherCopyCommand}"
+                                                Visibility="{x:Bind SaveAnotherCopyVisibility, Mode=OneWay}"
+                                                AutomationProperties.Name="Salvar outra cópia" Padding="10,5" CornerRadius="6"
+                                                Background="{ThemeResource AppInputBrush}" Foreground="{ThemeResource AppTextBrush}"
+                                                BorderBrush="{ThemeResource AppBorderBrush}" BorderThickness="1" />
+                                    </StackPanel>
                                     <Grid ColumnSpacing="12" Visibility="{x:Bind IsDownloadingVisibility, Mode=OneWay}">
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="48" /></Grid.ColumnDefinitions>
                                         <ProgressBar Value="{x:Bind Progress, Mode=OneWay}" Maximum="100" VerticalAlignment="Center" />

@@ -153,7 +153,7 @@ public sealed partial class HistoryPage : Page
             }
             else
             {
-                NoVideoText.Text = "Arquivo não encontrado.";
+                NoVideoText.Text = "Mídia não encontrada.";
                 PlayerEmptyState.Visibility = Visibility.Visible;
             }
         }

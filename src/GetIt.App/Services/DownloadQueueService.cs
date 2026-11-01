@@ -69,6 +69,47 @@ public sealed class DownloadQueueService
         }
     }
 
+    public async Task RetryItemAsync(IList<DownloadItemViewModel> queue, DownloadItemViewModel item,
+        string destinationFolder, bool saveAsNewCopy)
+    {
+        ArgumentNullException.ThrowIfNull(queue);
+        ArgumentNullException.ThrowIfNull(item);
+        await _downloadAllLock.WaitAsync();
+        try
+        {
+            if (!queue.Contains(item) || !item.CanRetryDownload)
+                return;
+
+            foreach (var queuedItem in queue)
+            {
+                queuedItem.IsQueueLocked = true;
+            }
+
+            _globalCts?.Cancel();
+            _globalCts?.Dispose();
+            _globalCts = new CancellationTokenSource();
+            try
+            {
+                await item.StartDownloadAsync(destinationFolder, _globalCts.Token, saveAsNewCopy);
+            }
+            finally
+            {
+                foreach (var queuedItem in queue)
+                {
+                    queuedItem.IsQueueLocked = false;
+                }
+
+                _globalCts?.Cancel();
+                _globalCts?.Dispose();
+                _globalCts = null;
+            }
+        }
+        finally
+        {
+            _downloadAllLock.Release();
+        }
+    }
+
     public void CancelAll(IList<DownloadItemViewModel> queue)
     {
         _globalCts?.Cancel();

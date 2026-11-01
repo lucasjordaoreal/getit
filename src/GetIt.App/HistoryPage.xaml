@@ -56,6 +56,7 @@
                                         <StackPanel Grid.Column="1" Spacing="4" MinWidth="0">
                                             <TextBlock Text="{x:Bind Title}" ToolTipService.ToolTip="{x:Bind Title}" FontWeight="SemiBold" Foreground="{ThemeResource AppTextBrush}" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxLines="2" Height="40" />
                                             <TextBlock Text="{x:Bind Url}" ToolTipService.ToolTip="{x:Bind Url}" FontSize="11" Foreground="{ThemeResource AppSecondaryTextBrush}" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{x:Bind DownloadedAtDisplay}" FontSize="11" Foreground="{ThemeResource AppSecondaryTextBrush}" />
                                         </StackPanel>
                                         <Grid Grid.Row="1" Grid.ColumnSpan="2" ColumnSpacing="8">
                                             <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="36" /><ColumnDefinition Width="100" /></Grid.ColumnDefinitions>
@@ -73,7 +74,7 @@
                                       HorizontalAlignment="Center" />
                             <TextBlock Text="Nenhum download ainda" FontWeight="SemiBold" Foreground="{ThemeResource AppTextBrush}"
                                        HorizontalAlignment="Center" />
-                            <TextBlock Text="Os vídeos concluídos aparecerão aqui."
+                            <TextBlock Text="As mídias concluídas aparecerão aqui."
                                        Foreground="{ThemeResource AppSecondaryTextBrush}" TextAlignment="Center" TextWrapping="Wrap" />
                         </StackPanel>
                     </Grid>
@@ -87,7 +88,7 @@
             <StackPanel x:Name="PlayerEmptyState" Spacing="12" HorizontalAlignment="Center" VerticalAlignment="Center">
                 <FontIcon Glyph="&#xE714;" FontSize="40" Foreground="{ThemeResource AppSecondaryTextBrush}"
                           HorizontalAlignment="Center" />
-                <TextBlock x:Name="NoVideoText" Text="Selecione um vídeo para reproduzir"
+                <TextBlock x:Name="NoVideoText" Text="Selecione uma mídia para reproduzir"
                            Foreground="{ThemeResource AppSecondaryTextBrush}" FontSize="16"
                            HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" />
             </StackPanel>

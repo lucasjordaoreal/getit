@@ -25,7 +25,7 @@ public sealed class FfmpegVideoConverter
 
     public async Task<string> ConvertToMovAsync(string sourcePath, string targetPath, bool overwrite,
         IProgress<VideoConversionProgress>? progress = null, CancellationToken cancellationToken = default,
-        string? audioSourcePath = null)
+        string? audioSourcePath = null, bool saveAsNewCopy = false)
     {
         sourcePath = Path.GetFullPath(sourcePath);
         targetPath = Path.GetFullPath(targetPath);
@@ -37,7 +37,7 @@ public sealed class FfmpegVideoConverter
             if (!File.Exists(audioSourcePath)) throw new FileNotFoundException("O áudio original não foi encontrado para conversão.", audioSourcePath);
         }
         if (sourcePath.Equals(targetPath, StringComparison.OrdinalIgnoreCase)) return sourcePath;
-        if (!overwrite && File.Exists(targetPath)) throw new IOException($"Arquivo já existe e não será sobrescrito: {targetPath}");
+        if (!overwrite && !saveAsNewCopy && File.Exists(targetPath)) throw new IOException($"Arquivo já existe e não será sobrescrito: {targetPath}");
         Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
 
         var candidates = _explicitHardwareCandidates ?? await GetHardwareEncodersAsync(cancellationToken);
@@ -88,9 +88,18 @@ public sealed class FfmpegVideoConverter
                 }
                 cancellationToken.ThrowIfCancellationRequested();
                 // The old destination is replaced only after the new file has finished successfully.
-                File.Move(temporaryOutput, targetPath, overwrite);
+                string publishedPath;
+                if (overwrite)
+                {
+                    File.Move(temporaryOutput, targetPath, overwrite: true);
+                    publishedPath = targetPath;
+                }
+                else
+                {
+                    publishedPath = NonOverwritingFilePublisher.Move(temporaryOutput, targetPath, saveAsNewCopy);
+                }
                 progress?.Report(new VideoConversionProgress(100, cpu ? "Conversão concluída com CPU." : "Conversão concluída com GPU.", encoder));
-                return targetPath;
+                return publishedPath;
             }
             finally
             {

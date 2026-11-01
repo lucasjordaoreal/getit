@@ -261,7 +261,7 @@ internal static class LayoutRegressionProbe
         }
         public Task<string?> DownloadAsync(string url, string formatId, bool isAudioOnly, string audioFormat, string audioBitrate,
             string videoExt, string downloadDir, IProgress<DownloadProgressInfo> progress, CancellationToken cancellationToken = default,
-            bool overwriteExistingFiles = false, string? titleHint = null)
+            bool overwriteExistingFiles = false, string? titleHint = null, bool saveAsNewCopy = false)
         {
             Calls++;
             throw new InvalidOperationException("Downloads are not allowed in the layout probe.");
@@ -284,7 +284,7 @@ internal static class LayoutRegressionProbe
         }
         public Task<string?> DownloadAsync(string url, string formatId, bool isAudioOnly, string audioFormat, string audioBitrate,
             string videoExt, string downloadDir, IProgress<DownloadProgressInfo> progress, CancellationToken cancellationToken = default,
-            bool overwriteExistingFiles = false, string? titleHint = null) =>
+            bool overwriteExistingFiles = false, string? titleHint = null, bool saveAsNewCopy = false) =>
             throw new InvalidOperationException("Downloads are not allowed in the Add command check.");
     }
 

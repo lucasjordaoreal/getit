@@ -15,7 +15,13 @@ namespace GetIt_App.Services;
 public interface IDownloadService
 {
     Task<VideoMetadata?> FetchMetadataAsync(string url, CancellationToken cancellationToken = default);
-    Task<string?> DownloadAsync(string url, string formatId, bool isAudioOnly, string audioFormat, string audioBitrate, string videoExt, string downloadDir, IProgress<DownloadProgressInfo> progress, CancellationToken cancellationToken = default, bool overwriteExistingFiles = false, string? titleHint = null);
+    Task<string?> DownloadAsync(string url, string formatId, bool isAudioOnly, string audioFormat, string audioBitrate, string videoExt, string downloadDir, IProgress<DownloadProgressInfo> progress, CancellationToken cancellationToken = default, bool overwriteExistingFiles = false, string? titleHint = null, bool saveAsNewCopy = false);
+}
+
+public sealed class DownloadFileConflictException(string path)
+    : IOException($"Arquivo já existe e não será sobrescrito: {path}")
+{
+    public string Path { get; } = path;
 }
 
 public interface IDownloadEngineHealthProvider
@@ -180,7 +186,7 @@ public partial class DownloadService : IDownloadService, IDownloadEngineHealthPr
     }
 
     private async Task<string> ConvertMovInputsAsync(MovInputs inputs, IEnumerable<string> downloadedPaths,
-        string sourceDirectory, string downloadDir, string? titleHint, bool overwriteExistingFiles,
+        string sourceDirectory, string downloadDir, string? titleHint, bool overwriteExistingFiles, bool saveAsNewCopy,
         IProgress<DownloadProgressInfo>? progress, CancellationToken cancellationToken)
     {
         var targetName = !string.IsNullOrWhiteSpace(titleHint)
@@ -207,7 +213,7 @@ public partial class DownloadService : IDownloadService, IDownloadEngineHealthPr
             Eta = string.Empty
         }));
         var converted = await converter.ConvertToMovAsync(inputs.Video, target, overwriteExistingFiles, conversionProgress, cancellationToken,
-            audioSourcePath: inputs.Audio);
+            audioSourcePath: inputs.Audio, saveAsNewCopy: saveAsNewCopy);
         try
         {
             var ownedDirectory = Path.GetFullPath(sourceDirectory).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
@@ -524,7 +530,7 @@ public partial class DownloadService : IDownloadService, IDownloadEngineHealthPr
         finally { MetadataSlots.Release(); }
     }
 
-    public async Task<string?> DownloadAsync(string url, string formatId, bool isAudioOnly, string audioFormat, string audioBitrate, string videoExt, string downloadDir, IProgress<DownloadProgressInfo> progress, CancellationToken cancellationToken = default, bool overwriteExistingFiles = false, string? titleHint = null)
+    public async Task<string?> DownloadAsync(string url, string formatId, bool isAudioOnly, string audioFormat, string audioBitrate, string videoExt, string downloadDir, IProgress<DownloadProgressInfo> progress, CancellationToken cancellationToken = default, bool overwriteExistingFiles = false, string? titleHint = null, bool saveAsNewCopy = false)
     {
         string normalizedAudioFormat = audioFormat.Trim().ToLowerInvariant();
         if (isAudioOnly && normalizedAudioFormat is not ("mp3" or "wav" or "flac"))
@@ -541,10 +547,8 @@ public partial class DownloadService : IDownloadService, IDownloadEngineHealthPr
 
         string expectedPath = GetFallbackTargetPath(downloadDir, targetExtension, titleHint);
 
-        if (File.Exists(expectedPath) && !overwriteExistingFiles)
-        {
-            throw new IOException($"Arquivo já existe e não será sobrescrito: {expectedPath}");
-        }
+        if (File.Exists(expectedPath) && !overwriteExistingFiles && !saveAsNewCopy)
+            throw new DownloadFileConflictException(expectedPath);
 
         using var operationDirectory = new TemporaryDownloadDirectory(downloadDir);
         var sourceDirectory = operationDirectory.Path;
@@ -713,8 +717,15 @@ public partial class DownloadService : IDownloadService, IDownloadEngineHealthPr
         if (convertMov)
         {
             var inputs = await ResolveMovInputsAsync(downloadedPaths, sourceDirectory, cancellationToken);
-            return await ConvertMovInputsAsync(inputs, downloadedPaths, sourceDirectory, downloadDir,
-                titleHint, overwriteExistingFiles, progress, cancellationToken);
+            try
+            {
+                return await ConvertMovInputsAsync(inputs, downloadedPaths, sourceDirectory, downloadDir,
+                    titleHint, overwriteExistingFiles, saveAsNewCopy, progress, cancellationToken);
+            }
+            catch (IOException) when (!overwriteExistingFiles && !saveAsNewCopy && File.Exists(expectedPath))
+            {
+                throw new DownloadFileConflictException(expectedPath);
+            }
         }
 
         var resolvedPath = DownloadOutputResolver.ResolveSingleFile(finalPath, sourceDirectory, targetExtension);
@@ -722,10 +733,19 @@ public partial class DownloadService : IDownloadService, IDownloadEngineHealthPr
             throw new FileNotFoundException("Não foi possível localizar um arquivo completo produzido por esta operação de download.", sourceDirectory);
 
         var targetPath = Path.Combine(downloadDir, Path.GetFileName(resolvedPath));
-        if (File.Exists(targetPath) && !overwriteExistingFiles)
-            throw new IOException($"Arquivo já existe e não será sobrescrito: {targetPath}");
+        if (overwriteExistingFiles)
+        {
+            File.Move(resolvedPath, targetPath, overwrite: true);
+            return targetPath;
+        }
 
-        File.Move(resolvedPath, targetPath, overwriteExistingFiles);
-        return targetPath;
+        try
+        {
+            return NonOverwritingFilePublisher.Move(resolvedPath, targetPath, saveAsNewCopy);
+        }
+        catch (IOException) when (!saveAsNewCopy && File.Exists(targetPath))
+        {
+            throw new DownloadFileConflictException(targetPath);
+        }
     }
 }

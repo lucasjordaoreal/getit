@@ -228,8 +228,27 @@ public partial class MainPageViewModel : ObservableObject
         Url = string.Empty;
         var item = new DownloadItemViewModel(link, _downloadService);
         item.OnRemoveRequested = i => DownloadQueue.Remove(i);
+        item.OnRetryDownloadRequested = RetryDownloadAsync;
         DownloadQueue.Add(item);
         _ = FetchMetadataAndRefreshEngineAsync(item);
+    }
+
+    private async Task RetryDownloadAsync(DownloadItemViewModel item, bool saveAsNewCopy)
+    {
+        if (_isShuttingDown || IsDownloadingAll)
+            return;
+
+        IsCancelling = false;
+        IsDownloadingAll = true;
+        try
+        {
+            await _queueService.RetryItemAsync(DownloadQueue, item, DownloadFolder, saveAsNewCopy);
+        }
+        finally
+        {
+            IsDownloadingAll = false;
+            IsCancelling = false;
+        }
     }
 
     private async Task FetchMetadataAndRefreshEngineAsync(DownloadItemViewModel item)

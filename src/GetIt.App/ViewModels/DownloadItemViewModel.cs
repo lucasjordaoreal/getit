@@ -28,6 +28,9 @@ public partial class DownloadItemViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsNotBusy))]
     [NotifyPropertyChangedFor(nameof(IsFetchingVisibility))]
+    [NotifyPropertyChangedFor(nameof(CanRetryAnalysis))]
+    [NotifyPropertyChangedFor(nameof(RetryAnalysisVisibility))]
+    [NotifyCanExecuteChangedFor(nameof(RetryAnalysisCommand))]
     public partial bool IsFetching { get; set; }
 
     [ObservableProperty]
@@ -36,15 +39,27 @@ public partial class DownloadItemViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(IsDownloadingVisibility))]
     [NotifyPropertyChangedFor(nameof(CanEditQueue))]
     [NotifyPropertyChangedFor(nameof(CanRetryDownload))]
+    [NotifyPropertyChangedFor(nameof(CanRetryAnalysis))]
+    [NotifyPropertyChangedFor(nameof(RetryAnalysisVisibility))]
     [NotifyCanExecuteChangedFor(nameof(RemoveCommand))]
     [NotifyCanExecuteChangedFor(nameof(PrepareAnotherDownloadCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RetryDownloadCommand))]
+    [NotifyCanExecuteChangedFor(nameof(SaveAnotherCopyCommand))]
     public partial bool IsDownloading { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanEditQueue))]
     [NotifyPropertyChangedFor(nameof(IsNotDownloading))]
+    [NotifyPropertyChangedFor(nameof(CanRetryDownload))]
+    [NotifyPropertyChangedFor(nameof(CanRetryAnalysis))]
+    [NotifyPropertyChangedFor(nameof(RetryAnalysisVisibility))]
+    [NotifyPropertyChangedFor(nameof(RetryDownloadVisibility))]
+    [NotifyPropertyChangedFor(nameof(SaveAnotherCopyVisibility))]
     [NotifyCanExecuteChangedFor(nameof(RemoveCommand))]
     [NotifyCanExecuteChangedFor(nameof(PrepareAnotherDownloadCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RetryAnalysisCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RetryDownloadCommand))]
+    [NotifyCanExecuteChangedFor(nameof(SaveAnotherCopyCommand))]
     public partial bool IsQueueLocked { get; set; }
 
     public bool IsNotBusy => !IsFetching && !IsDownloading;
@@ -58,6 +73,8 @@ public partial class DownloadItemViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(HasMetadata))]
     [NotifyPropertyChangedFor(nameof(HasMetadataVisibility))]
     [NotifyPropertyChangedFor(nameof(DisplayTitle))]
+    [NotifyPropertyChangedFor(nameof(CanRetryAnalysis))]
+    [NotifyPropertyChangedFor(nameof(RetryAnalysisVisibility))]
     public partial VideoMetadata? Metadata { get; set; }
 
     [ObservableProperty]
@@ -248,6 +265,13 @@ public partial class DownloadItemViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(StatusColor))]
     [NotifyPropertyChangedFor(nameof(CanRetryDownload))]
+    [NotifyPropertyChangedFor(nameof(CanRetryAnalysis))]
+    [NotifyPropertyChangedFor(nameof(RetryAnalysisVisibility))]
+    [NotifyPropertyChangedFor(nameof(RetryDownloadVisibility))]
+    [NotifyPropertyChangedFor(nameof(SaveAnotherCopyVisibility))]
+    [NotifyCanExecuteChangedFor(nameof(RetryAnalysisCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RetryDownloadCommand))]
+    [NotifyCanExecuteChangedFor(nameof(SaveAnotherCopyCommand))]
     public partial bool IsError { get; set; }
 
     public Microsoft.UI.Xaml.Media.SolidColorBrush StatusColor => new Microsoft.UI.Xaml.Media.SolidColorBrush(
@@ -259,10 +283,18 @@ public partial class DownloadItemViewModel : ObservableObject
 
     public string DownloadedFolderPath { get; set; } = string.Empty;
     public string DownloadedFilePath { get; private set; } = string.Empty;
-    public bool CanRetryDownload => !IsDownloading && IsError && Metadata != null && !string.IsNullOrWhiteSpace(DownloadedFolderPath);
-    public bool ShouldOverwriteExistingFiles { get; set; }
+    public bool CanRetryAnalysis => !IsFetching && !IsDownloading && !IsQueueLocked && IsError && Metadata == null;
+    public bool CanRetryDownload => !IsDownloading && !IsQueueLocked && IsError && Metadata != null && !string.IsNullOrWhiteSpace(DownloadedFolderPath);
+    public Microsoft.UI.Xaml.Visibility RetryAnalysisVisibility => CanRetryAnalysis ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
+    public Microsoft.UI.Xaml.Visibility RetryDownloadVisibility => CanRetryDownload && !HasFileConflict ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
+    public Microsoft.UI.Xaml.Visibility SaveAnotherCopyVisibility => CanRetryDownload && HasFileConflict ? Microsoft.UI.Xaml.Visibility.Visible : Microsoft.UI.Xaml.Visibility.Collapsed;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(RetryDownloadVisibility))]
+    [NotifyPropertyChangedFor(nameof(SaveAnotherCopyVisibility))]
+    public partial bool HasFileConflict { get; set; }
 
     public Action<DownloadItemViewModel>? OnRemoveRequested { get; set; }
+    public Func<DownloadItemViewModel, bool, Task>? OnRetryDownloadRequested { get; set; }
 
     public DownloadItemViewModel(string url, IDownloadService downloadService)
     {
@@ -275,6 +307,23 @@ public partial class DownloadItemViewModel : ObservableObject
     {
         _cts?.Cancel();
         _thumbnailCts?.Cancel();
+    }
+
+    [RelayCommand(CanExecute = nameof(CanRetryAnalysis))]
+    private async Task RetryAnalysisAsync() => await FetchMetadataAsync();
+
+    [RelayCommand(CanExecute = nameof(CanRetryDownload))]
+    private async Task RetryDownloadAsync()
+    {
+        if (OnRetryDownloadRequested is not null)
+            await OnRetryDownloadRequested(this, false);
+    }
+
+    [RelayCommand(CanExecute = nameof(CanRetryDownload))]
+    private async Task SaveAnotherCopyAsync()
+    {
+        if (OnRetryDownloadRequested is not null)
+            await OnRetryDownloadRequested(this, true);
     }
 
     [RelayCommand(CanExecute = nameof(CanEditQueue))]
@@ -321,18 +370,6 @@ public partial class DownloadItemViewModel : ObservableObject
         StatusMessage = "Selecione outro formato e baixe novamente.";
     }
 
-    public async Task RetryDownloadAsync()
-    {
-        if (string.IsNullOrWhiteSpace(DownloadedFolderPath) || Metadata == null)
-        {
-            return;
-        }
-
-        IsError = false;
-        StatusMessage = "Tentando novamente...";
-        await StartDownloadAsync(DownloadedFolderPath, CancellationToken.None);
-    }
-
     private static string GetFriendlyMessage(string? message)
     {
         if (string.IsNullOrWhiteSpace(message))
@@ -343,7 +380,7 @@ public partial class DownloadItemViewModel : ObservableObject
         var normalized = message.Trim();
         if (normalized.Contains("Arquivo já existe", StringComparison.OrdinalIgnoreCase))
         {
-            return "Arquivo já existente. Habilite a sobrescrita para continuar ou escolha outra pasta.";
+            return "Já existe um arquivo com esse nome. O arquivo original foi mantido.";
         }
 
         if (normalized.Contains("pasta de destino", StringComparison.OrdinalIgnoreCase) || normalized.Contains("Não foi possível gravar", StringComparison.OrdinalIgnoreCase))
@@ -373,6 +410,7 @@ public partial class DownloadItemViewModel : ObservableObject
     {
         if (IsFetching || IsDownloading || IsQueueLocked) return;
         IsFetching = true;
+        IsError = false;
         StatusMessage = "Analisando link...";
 
         using var operation = new CancellationTokenSource();
@@ -381,38 +419,33 @@ public partial class DownloadItemViewModel : ObservableObject
         try
         {
             var meta = await _downloadService.FetchMetadataAsync(Url, operation.Token);
-            if (meta != null)
-            {
-                Metadata = meta;
+            operation.Token.ThrowIfCancellationRequested();
+            if (meta is null)
+                throw new InvalidOperationException("O site não retornou informações desta mídia. Verifique o link e tente novamente.");
 
-                var cleanFormats = meta.Formats
-                    .Where(f => f.HasVideo && !string.IsNullOrEmpty(f.Resolution) && f.Resolution != "audio only")
-                    .OrderByDescending(f => f.Height ?? 0)
-                    .ThenByDescending(f => f.Fps)
-                    .ThenBy(f => f.HasAudio ? 1 : 0)
-                    .ToList();
+            var previousFormatId = SelectedFormat?.FormatId;
+            Metadata = meta;
+            var cleanFormats = meta.Formats
+                .Where(f => f.HasVideo && !string.IsNullOrEmpty(f.Resolution) && f.Resolution != "audio only")
+                .OrderByDescending(f => f.Height ?? 0)
+                .ThenByDescending(f => f.Fps)
+                .ThenBy(f => f.HasAudio ? 1 : 0)
+                .ToList();
 
-                var grouped = cleanFormats.GroupBy(f => f.Resolution).Select(g => g.First()).ToList();
-                AvailableFormats.Clear();
+            var grouped = cleanFormats.GroupBy(f => f.Resolution).Select(g => g.First()).Take(15).ToList();
+            AvailableFormats.Clear();
+            foreach (var format in grouped)
+                AvailableFormats.Add(format);
 
-                foreach (var f in grouped.Take(15))
-                {
-                    AvailableFormats.Add(f);
-                }
-
-                if (AvailableFormats.Any())
-                {
-                    SelectedFormat = AvailableFormats.First();
-                }
-
-                StatusMessage = "Pronto.";
-                IsError = false;
-            }
+            SelectedFormat = AvailableFormats.FirstOrDefault(format => format.FormatId == previousFormatId)
+                ?? AvailableFormats.FirstOrDefault();
+            StatusMessage = "Pronto.";
+            IsError = false;
         }
         catch (OperationCanceledException)
         {
             StatusMessage = "Análise cancelada.";
-            IsError = true;
+            IsError = false;
         }
         catch (Exception ex)
         {
@@ -426,7 +459,7 @@ public partial class DownloadItemViewModel : ObservableObject
         }
     }
 
-    public async Task StartDownloadAsync(string destinationFolder, CancellationToken masterToken)
+    public async Task StartDownloadAsync(string destinationFolder, CancellationToken masterToken, bool saveAsNewCopy = false)
     {
         if (masterToken.IsCancellationRequested || IsFetching || IsDownloadComplete || Metadata == null)
         {
@@ -446,6 +479,7 @@ public partial class DownloadItemViewModel : ObservableObject
 
             IsDownloading = true;
             IsError = false;
+            HasFileConflict = false;
             Progress = 0;
             StatusMessage = "Iniciando download...";
 
@@ -483,8 +517,9 @@ public partial class DownloadItemViewModel : ObservableObject
                     destinationFolder,
                     progressHandler,
                     _cts.Token,
-                    overwriteExistingFiles: ShouldOverwriteExistingFiles,
-                    titleHint: Metadata.Title
+                    overwriteExistingFiles: false,
+                    titleHint: Metadata.Title,
+                    saveAsNewCopy: saveAsNewCopy
                 );
 
                 if (string.IsNullOrWhiteSpace(resultPath) || !File.Exists(resultPath))
@@ -492,7 +527,7 @@ public partial class DownloadItemViewModel : ObservableObject
 
                 DownloadedFilePath = resultPath;
                 DownloadedFolderPath = Path.GetDirectoryName(resultPath) ?? destinationFolder;
-                StatusMessage = $"Concluído! Arquivo salvo em: {resultPath}";
+                StatusMessage = "Download concluído com sucesso.";
                 Progress = 100;
                 Speed = string.Empty;
                 Eta = string.Empty;
@@ -518,14 +553,21 @@ public partial class DownloadItemViewModel : ObservableObject
             catch (OperationCanceledException)
             {
                 StatusMessage = "Download cancelado pelo usuário.";
+                IsError = false;
+            }
+            catch (DownloadFileConflictException ex)
+            {
+                HasFileConflict = true;
+                StatusMessage = "Já existe um arquivo com esse nome. O original foi mantido.";
                 IsError = true;
+                AppLogger.LogWarning($"Download destination conflict: {Path.GetFileName(ex.Path)}");
             }
             catch (Exception ex)
             {
                 var friendly = GetFriendlyMessage(ex.Message);
                 StatusMessage = friendly;
                 IsError = true;
-                AppLogger.LogException(ex, $"Download failed for {Url}");
+                AppLogger.LogException(ex, "Download failed");
             }
             finally
             {
