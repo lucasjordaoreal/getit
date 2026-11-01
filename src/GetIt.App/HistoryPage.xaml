@@ -120,10 +120,26 @@
                                                     IsEnabled="{x:Bind IsFileAvailable}"
                                                     Width="40" Height="40" Padding="0" ToolTipService.ToolTip="Mostrar na pasta"
                                                     AutomationProperties.Name="Mostrar na pasta"><FontIcon Glyph="&#xE8B7;" FontSize="15" /></Button>
-                                            <Button Grid.Column="2" Content="Reproduzir" Click="PlayVideo_Click" Tag="{x:Bind LocalFilePath}"
+                                            <Button Grid.Column="2" Click="PlayVideo_Click"
+                                                    Loaded="PlayButton_Loaded" Unloaded="PlayButton_Unloaded"
+                                                    Tag="{x:Bind LocalFilePath}"
                                                     IsEnabled="{x:Bind IsFileAvailable}"
+                                                    AutomationProperties.Name="{x:Bind PlayButtonText, Mode=OneWay}"
                                                     MinHeight="40" HorizontalAlignment="Stretch" Background="{ThemeResource AppAccentBrush}"
-                                                    Foreground="{ThemeResource AppAccentTextBrush}" />
+                                                    Foreground="{ThemeResource AppAccentTextBrush}">
+                                                <ScrollViewer HorizontalScrollMode="Enabled"
+                                                              HorizontalScrollBarVisibility="Hidden"
+                                                              VerticalScrollMode="Disabled"
+                                                              VerticalScrollBarVisibility="Hidden"
+                                                          HorizontalContentAlignment="Left"
+                                                          IsHitTestVisible="False"
+                                                          IsTabStop="False">
+                                                <TextBlock Text="{x:Bind PlayButtonText, Mode=OneWay}"
+                                                           TextWrapping="NoWrap"
+                                                           HorizontalAlignment="Left"
+                                                           VerticalAlignment="Center" />
+                                                </ScrollViewer>
+                                            </Button>
                                         </Grid>
                                     </Grid>
                                 </Border>

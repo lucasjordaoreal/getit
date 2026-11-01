@@ -38,4 +38,21 @@ public sealed class HistoryItemDisplayTests
         Assert.Contains("\"DownloadedAt\"", json);
         Assert.DoesNotContain("DownloadedAtDisplay", json);
     }
+
+    [Fact]
+    public void PlayButtonTextTracksPlaybackStateWithoutChangingTheHistoryJson()
+    {
+        var item = new HistoryItem();
+        var changedProperties = new List<string?>();
+        item.PropertyChanged += (_, args) => changedProperties.Add(args.PropertyName);
+
+        Assert.Equal("Reproduzir", item.PlayButtonText);
+        item.IsPlaying = true;
+
+        Assert.Equal("Reproduzindo", item.PlayButtonText);
+        Assert.Contains(nameof(HistoryItem.PlayButtonText), changedProperties);
+        var json = JsonSerializer.Serialize(item);
+        Assert.DoesNotContain("IsPlaying", json);
+        Assert.DoesNotContain("PlayButtonText", json);
+    }
 }

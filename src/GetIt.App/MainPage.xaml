@@ -28,19 +28,6 @@
 
         <!-- Use a Grid to allow ListView to take up remaining space and push the action buttons to the bottom -->
         <Grid x:Name="MainLayout" MaxWidth="1520" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="18,16" RowSpacing="14" Loaded="Page_Loaded">
-            <VisualStateManager.VisualStateGroups>
-                <VisualStateGroup x:Name="MainWindowSizeStates">
-                    <VisualState x:Name="WideMainLayout">
-                        <VisualState.StateTriggers>
-                            <AdaptiveTrigger MinWindowWidth="1000" />
-                        </VisualState.StateTriggers>
-                        <VisualState.Setters>
-                            <Setter Target="QueueSummaryText.(Grid.Row)" Value="0" />
-                            <Setter Target="QueueSummaryText.(Grid.Column)" Value="1" />
-                        </VisualState.Setters>
-                    </VisualState>
-                </VisualStateGroup>
-            </VisualStateManager.VisualStateGroups>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -52,8 +39,15 @@
             <Grid Grid.Row="0" ColumnSpacing="16">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                 <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
-                <StackPanel Spacing="2"><TextBlock Text="Baixar mídia" FontSize="28" FontWeight="Bold" Foreground="{ThemeResource AppTextBrush}" /><TextBlock Text="Cole um link, escolha o formato e comece o download." TextWrapping="Wrap" FontSize="14" Foreground="{ThemeResource AppSecondaryTextBrush}" /></StackPanel>
-                <TextBlock x:Name="QueueSummaryText" Grid.Row="1" Text="{x:Bind ViewModel.QueueSummary, Mode=OneWay}" Foreground="{ThemeResource AppSecondaryTextBrush}" FontSize="12" TextWrapping="Wrap" MaxWidth="240" VerticalAlignment="Center" />
+                <StackPanel Grid.RowSpan="2" Spacing="2">
+                    <TextBlock Text="Baixar mídia" FontSize="28" FontWeight="Bold" Foreground="{ThemeResource AppTextBrush}" />
+                    <TextBlock Text="Cole um link, escolha o formato e comece o download." TextWrapping="Wrap" FontSize="14" Foreground="{ThemeResource AppSecondaryTextBrush}" />
+                </StackPanel>
+                <TextBlock x:Name="QueueSummaryText" Grid.Row="1" Grid.Column="1"
+                           Text="{x:Bind ViewModel.QueueSummary, Mode=OneWay}"
+                           Foreground="{ThemeResource AppSecondaryTextBrush}" FontSize="12"
+                           TextWrapping="Wrap" TextAlignment="Right" MaxWidth="260"
+                           HorizontalAlignment="Right" VerticalAlignment="Center" />
             </Grid>
 
             <Border Grid.Row="1" Background="{ThemeResource AppCardBrush}"
@@ -71,8 +65,9 @@
                             <AddDeleteThemeTransition />
                         </TransitionCollection>
                     </Grid.Transitions>
-                    <Grid Grid.Row="0" ColumnSpacing="12">
+                    <Grid Grid.Row="0" ColumnSpacing="8">
                         <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
@@ -80,12 +75,12 @@
                         <ComboBox Header="Preset para novos links"
                                   ItemsSource="{x:Bind ViewModel.AvailableDownloadPresets, Mode=OneWay}"
                                   SelectedItem="{x:Bind ViewModel.SelectedDownloadPreset, Mode=TwoWay}"
-                                  DisplayMemberPath="Name" MinWidth="220" Width="280"
+                                  DisplayMemberPath="Name" MinWidth="220" Width="240"
                                   IsEnabled="{x:Bind ViewModel.IsNotDownloading, Mode=OneWay}"
                                   AutomationProperties.Name="Preset de download para novos links" />
                         <Button Grid.Column="1" Click="AddMultipleLinks_Click"
                                 IsEnabled="{x:Bind ViewModel.IsNotDownloading, Mode=OneWay}"
-                                MinWidth="152" Height="32" MinHeight="32" Padding="10,2"
+                                MinWidth="136" Height="32" MinHeight="32" Padding="8,2"
                                 VerticalAlignment="Bottom" VerticalContentAlignment="Center"
                                 AutomationProperties.Name="Adicionar vários links"
                                 ToolTipService.ToolTip="Colar vários links e revisar antes de adicionar"
@@ -94,6 +89,19 @@
                             <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                                 <FontIcon Glyph="&#xE8EF;" FontSize="15" Foreground="{ThemeResource AppAccentBrush}" />
                                 <TextBlock Text="Vários links" FontWeight="SemiBold" />
+                            </StackPanel>
+                        </Button>
+                        <Button Grid.Column="2" Click="AddPlaylist_Click"
+                                IsEnabled="{x:Bind ViewModel.CanAddUrl, Mode=OneWay}"
+                                MinWidth="96" Height="32" MinHeight="32" Padding="8,2"
+                                VerticalAlignment="Bottom" VerticalContentAlignment="Center"
+                                AutomationProperties.Name="Adicionar playlist"
+                                ToolTipService.ToolTip="Analisar uma playlist e escolher os vídeos"
+                                Background="{ThemeResource AppCardStrongBrush}" Foreground="{ThemeResource AppTextBrush}"
+                                BorderBrush="{ThemeResource AppBorderBrush}" BorderThickness="1" CornerRadius="8">
+                            <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
+                                <FontIcon Glyph="&#xE8B7;" FontSize="14" Foreground="{ThemeResource AppAccentBrush}" />
+                                <TextBlock Text="Playlist" FontWeight="SemiBold" />
                             </StackPanel>
                         </Button>
                     </Grid>
@@ -142,6 +150,14 @@
                            Visibility="{x:Bind ViewModel.EngineStatusVisibility, Mode=OneWay}"
                            TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource AppErrorBrush}" />
                 <TextBlock Text="{x:Bind ViewModel.InputError, Mode=OneWay}" TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource AppErrorBrush}" />
+                <StackPanel Orientation="Horizontal" Spacing="8"
+                            Visibility="{x:Bind ViewModel.IsLoadingPlaylistVisibility, Mode=OneWay}">
+                    <ProgressRing IsActive="True" Width="16" Height="16" />
+                    <TextBlock Text="Lendo a playlist…" VerticalAlignment="Center"
+                               Foreground="{ThemeResource AppSecondaryTextBrush}" />
+                    <Button Content="Cancelar" Command="{x:Bind ViewModel.CancelPlaylistPreviewCommand}"
+                            MinHeight="30" Padding="10,2" AutomationProperties.Name="Cancelar leitura da playlist" />
+                </StackPanel>
                 <ToggleSwitch IsOn="{x:Bind ViewModel.IsAutoPasteEnabled, Mode=TwoWay}"
                               Header="Preencher com links copiados do YouTube" OffContent="Desativado"
                               OnContent="Ativado" FontSize="12" />
@@ -222,7 +238,7 @@
                                     <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
                                     <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" MinWidth="0" /></Grid.ColumnDefinitions>
                                     <Border x:Name="FormatOptionsBorder" Grid.ColumnSpan="2" Background="{ThemeResource AppInputBrush}" BorderBrush="{ThemeResource AppBorderBrush}" BorderThickness="1" CornerRadius="12" Padding="2">
-                                        <StackPanel Orientation="Horizontal">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
                                             <ToggleButton Content="MP4" IsChecked="{x:Bind IsMp4Selected, Mode=TwoWay}" IsEnabled="{x:Bind CanEditQueue, Mode=OneWay}" AutomationProperties.Name="Formato MP4" CornerRadius="10" MinHeight="40" Padding="8,4" MinWidth="0" FontSize="12" FontWeight="Bold" Background="Transparent" Foreground="{ThemeResource AppTextBrush}" />
                                             <ToggleButton Content="MOV" IsChecked="{x:Bind IsMovSelected, Mode=TwoWay}" IsEnabled="{x:Bind CanEditQueue, Mode=OneWay}" AutomationProperties.Name="Formato MOV" CornerRadius="10" MinHeight="40" Padding="8,4" MinWidth="0" FontSize="12" FontWeight="Bold" Background="Transparent" Foreground="{ThemeResource AppTextBrush}" />
                                             <ToggleButton Content="MP3" IsChecked="{x:Bind IsMp3Selected, Mode=TwoWay}" IsEnabled="{x:Bind CanEditQueue, Mode=OneWay}" AutomationProperties.Name="Formato MP3" CornerRadius="10" MinHeight="40" Padding="8,4" MinWidth="0" FontSize="12" FontWeight="Bold" Background="Transparent" Foreground="{ThemeResource AppTextBrush}" />

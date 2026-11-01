@@ -20,9 +20,19 @@ public class AudioBitrate
     public string Value { get; set; } = string.Empty;
 }
 
+public enum PlaylistInputChoice
+{
+    Cancel,
+    AddVideoOnly,
+    SelectPlaylistVideos
+}
+
+public sealed record PlaylistInputSelection(PlaylistInputChoice Choice, IReadOnlyList<int> SelectedPositions);
+
 public partial class MainPageViewModel : ObservableObject
 {
     private readonly IDownloadService _downloadService;
+    private readonly IPlaylistPreviewService? _playlistPreviewService;
     private readonly DownloadQueueService _queueService;
     private readonly DownloadQueuePersistenceService _queuePersistenceService;
     private readonly Microsoft.UI.Dispatching.DispatcherQueue _dispatcherQueue;
@@ -36,6 +46,8 @@ public partial class MainPageViewModel : ObservableObject
     private bool _queueRestoreInitialized;
     private bool _queuePersistenceReady;
     private CancellationTokenSource? _queueSaveDebounce;
+    private CancellationTokenSource? _playlistPreviewCts;
+    private TaskCompletionSource? _playlistPreviewFinished;
     private Task _queueSaveTask = Task.CompletedTask;
     private TaskCompletionSource? _queueOperationFinished;
 
@@ -46,11 +58,19 @@ public partial class MainPageViewModel : ObservableObject
 
     public ObservableCollection<DownloadItemViewModel> DownloadQueue { get; } = new();
     public IReadOnlyList<DownloadPresetOption> AvailableDownloadPresets => DownloadPresetPolicy.Options;
+    public Func<PlaylistPreview, bool, Task<PlaylistInputSelection>>? PlaylistSelectionRequested { get; set; }
 
     [ObservableProperty]
     public partial DownloadPresetOption? SelectedDownloadPreset { get; set; } = DownloadPresetPolicy.Options[0];
 
     public bool IsQueuePersistenceEnabled { get; private set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanAddUrl))]
+    [NotifyPropertyChangedFor(nameof(IsNotDownloading))]
+    [NotifyPropertyChangedFor(nameof(IsLoadingPlaylistVisibility))]
+    [NotifyCanExecuteChangedFor(nameof(AddUrlCommand))]
+    public partial bool IsLoadingPlaylist { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsNotDownloading))]
@@ -83,19 +103,20 @@ public partial class MainPageViewModel : ObservableObject
     [NotifyPropertyChangedFor(nameof(EngineStatusVisibility))]
     public partial string EngineStatusMessage { get; set; } = string.Empty;
 
-    public bool CanAddUrl => !_isShuttingDown && !IsDownloadingAll && !string.IsNullOrWhiteSpace(Url);
+    public bool CanAddUrl => !_isShuttingDown && !IsDownloadingAll && !IsLoadingPlaylist && !string.IsNullOrWhiteSpace(Url);
     public bool CanStartDownloads => !_isShuttingDown && !IsDownloadingAll &&
         DownloadQueue.Any(item => item.HasMetadata && !item.IsDownloadComplete && !item.IsDownloading) &&
         !DownloadQueue.Any(item => item.IsFetching || item.IsDownloading);
     public bool CanClearQueue => !_isShuttingDown && !IsDownloadingAll && DownloadQueue.Count > 0;
     public bool CanChangeFolder => !_isShuttingDown && !IsDownloadingAll;
     public bool CanCancelDownloads => IsDownloadingAll && !IsCancelling;
-    public bool IsNotDownloading => !IsDownloadingAll;
+    public bool IsNotDownloading => !IsDownloadingAll && !IsLoadingPlaylist;
     public Visibility IsDownloadingVisibility => IsDownloadingAll ? Visibility.Visible : Visibility.Collapsed;
     public Visibility IsNotDownloadingVisibility => IsDownloadingAll ? Visibility.Collapsed : Visibility.Visible;
     public Visibility HasItemsVisibility => DownloadQueue.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
     public Visibility IsQueueEmptyVisibility => DownloadQueue.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
     public Visibility EngineStatusVisibility => string.IsNullOrWhiteSpace(EngineStatusMessage) ? Visibility.Collapsed : Visibility.Visible;
+    public Visibility IsLoadingPlaylistVisibility => IsLoadingPlaylist ? Visibility.Visible : Visibility.Collapsed;
     public string DownloadButtonText => IsDownloadingAll ? "Baixando…" : DownloadQueue.Count > 1 ? "Baixar fila" : "Baixar";
 
     public string QueueSummary
@@ -128,6 +149,7 @@ public partial class MainPageViewModel : ObservableObject
     public MainPageViewModel(IDownloadService downloadService)
     {
         _downloadService = downloadService ?? throw new ArgumentNullException(nameof(downloadService));
+        _playlistPreviewService = downloadService as IPlaylistPreviewService;
         _queueService = new DownloadQueueService();
         _queuePersistenceService = new DownloadQueuePersistenceService();
         _dispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
@@ -228,7 +250,7 @@ public partial class MainPageViewModel : ObservableObject
     partial void OnUrlChanged(string value) => InputError = string.Empty;
 
     [RelayCommand(CanExecute = nameof(CanAddUrl))]
-    private void AddUrl()
+    private async Task AddUrl()
     {
         if (!CanAddUrl) return;
         if (!MediaUrlPolicy.TryNormalizeHttpUrl(Url, out var link))
@@ -241,9 +263,176 @@ public partial class MainPageViewModel : ObservableObject
             InputError = "Este link já foi adicionado à fila.";
             return;
         }
+
+        if (PlaylistUrlPolicy.MayRepresentPlaylist(link) && await TryHandlePlaylistAsync(link, explicitRequest: false))
+            return;
+
+        AddSingleQueueItem(link);
+    }
+
+    public async Task AddPlaylistFromUrlAsync()
+    {
+        if (_isShuttingDown || IsDownloadingAll || IsLoadingPlaylist)
+            return;
+        if (!MediaUrlPolicy.TryNormalizeHttpUrl(Url, out var link))
+        {
+            InputError = "Digite um endereço válido começando com https:// ou http://.";
+            return;
+        }
+
+        await TryHandlePlaylistAsync(link, explicitRequest: true);
+    }
+
+    [RelayCommand]
+    private void CancelPlaylistPreview() => _playlistPreviewCts?.Cancel();
+
+    private void AddSingleQueueItem(string link)
+    {
+        if (_isShuttingDown || IsDownloadingAll)
+            return;
         Url = string.Empty;
         var item = CreateQueueItem(link);
         _ = FetchMetadataAndRefreshEngineAsync(item);
+    }
+
+    private async Task<bool> TryHandlePlaylistAsync(string link, bool explicitRequest)
+    {
+        if (_playlistPreviewService is null)
+        {
+            InputError = explicitRequest
+                ? "A engine atual não oferece suporte à prévia de playlists."
+                : "Não foi possível verificar se este endereço é uma playlist. Use a ação Playlist para tentar novamente.";
+            return true;
+        }
+
+        IsLoadingPlaylist = true;
+        InputError = string.Empty;
+        using var operation = new CancellationTokenSource();
+        _playlistPreviewCts = operation;
+        _playlistPreviewFinished = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var selectionWasRequested = false;
+        try
+        {
+            var preview = await _playlistPreviewService.FetchPlaylistPreviewAsync(link, operation.Token);
+            operation.Token.ThrowIfCancellationRequested();
+            CompletePlaylistProcess(operation);
+            if (preview is null)
+            {
+                if (PlaylistUrlPolicy.IsAmbiguousVideoAndPlaylistUrl(link) &&
+                    PlaylistSelectionRequested is { } selectionRequested)
+                {
+                    selectionWasRequested = true;
+                    var decision = await selectionRequested(
+                        new PlaylistPreview(null, null, null, null, Array.Empty<PlaylistVideoEntry>(), false),
+                        true);
+                    operation.Token.ThrowIfCancellationRequested();
+                    if (_isShuttingDown)
+                        return true;
+                    if (decision.Choice == PlaylistInputChoice.AddVideoOnly)
+                        AddSingleQueueItem(link);
+                    else if (decision.Choice == PlaylistInputChoice.SelectPlaylistVideos)
+                        InputError = "O yt-dlp não retornou vídeos disponíveis para esta playlist.";
+                    return true;
+                }
+
+                InputError = "O yt-dlp não identificou uma playlist compatível neste endereço.";
+                return true;
+            }
+
+            var ambiguous = PlaylistUrlPolicy.IsAmbiguousVideoAndPlaylistUrl(link);
+            PlaylistInputSelection selection;
+            if (PlaylistSelectionRequested is null)
+                selection = new PlaylistInputSelection(PlaylistInputChoice.Cancel, Array.Empty<int>());
+            else
+            {
+                selectionWasRequested = true;
+                selection = await PlaylistSelectionRequested(preview, ambiguous);
+            }
+            operation.Token.ThrowIfCancellationRequested();
+            if (_isShuttingDown)
+                return true;
+
+            if (selection.Choice == PlaylistInputChoice.AddVideoOnly)
+            {
+                AddSingleQueueItem(link);
+                return true;
+            }
+            if (selection.Choice != PlaylistInputChoice.SelectPlaylistVideos)
+                return true;
+
+            var resolved = PlaylistPreviewPolicy.ResolveSelection(
+                preview,
+                selection.SelectedPositions,
+                DownloadQueue.Select(item => item.Url));
+            if (resolved.Urls.Count == 0)
+            {
+                InputError = resolved.DuplicateCount > 0
+                    ? "Os vídeos selecionados já estão na fila ou não têm um endereço individual disponível."
+                    : "Selecione ao menos um vídeo disponível com endereço individual.";
+                return true;
+            }
+
+            var addedItems = resolved.Urls.Select(CreateQueueItem).ToList();
+            Url = string.Empty;
+            InputError = resolved.DuplicateCount > 0 || resolved.UnavailableCount > 0
+                ? $"{resolved.DuplicateCount} duplicados e {resolved.UnavailableCount} indisponíveis foram ignorados."
+                : string.Empty;
+            _ = FetchBatchMetadataAndRefreshEngineAsync(addedItems);
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            CompletePlaylistProcess(operation);
+            if (!_isShuttingDown)
+                InputError = "Leitura da playlist cancelada.";
+            return true;
+        }
+        catch (Exception exception)
+        {
+            CompletePlaylistProcess(operation);
+            AppLogger.LogException(exception, "Could not load playlist preview");
+            if (!selectionWasRequested &&
+                PlaylistUrlPolicy.IsAmbiguousVideoAndPlaylistUrl(link) &&
+                PlaylistSelectionRequested is { } selectionRequested)
+            {
+                try
+                {
+                    var decision = await selectionRequested(
+                        new PlaylistPreview(null, null, null, null, Array.Empty<PlaylistVideoEntry>(), false),
+                        true);
+                    if (decision.Choice == PlaylistInputChoice.AddVideoOnly)
+                    {
+                        AddSingleQueueItem(link);
+                        return true;
+                    }
+                    if (decision.Choice == PlaylistInputChoice.SelectPlaylistVideos)
+                        InputError = "Não foi possível carregar os vídeos da playlist. Tente novamente ou escolha somente o vídeo.";
+                    return true;
+                }
+                catch (Exception dialogException)
+                {
+                    AppLogger.LogException(dialogException, "Could not show the ambiguous video/playlist choice");
+                }
+            }
+
+            InputError = exception.Message.Length > 240
+                ? exception.Message[..237] + "..."
+                : $"Não foi possível carregar a playlist: {exception.Message}";
+            return true;
+        }
+        finally
+        {
+            CompletePlaylistProcess(operation);
+            IsLoadingPlaylist = false;
+        }
+    }
+
+    private void CompletePlaylistProcess(CancellationTokenSource operation)
+    {
+        if (ReferenceEquals(_playlistPreviewCts, operation))
+            _playlistPreviewCts = null;
+        _playlistPreviewFinished?.TrySetResult();
+        _playlistPreviewFinished = null;
     }
 
     public BatchUrlPreview PreviewBatchUrls(string? input) =>
@@ -436,6 +625,9 @@ public partial class MainPageViewModel : ObservableObject
         _isShuttingDown = true;
         DeactivateClipboardMonitoring();
         _queueService.CancelAll(DownloadQueue);
+        _playlistPreviewCts?.Cancel();
+        if (_playlistPreviewFinished is { } playlistPreviewFinished)
+            await playlistPreviewFinished.Task;
         if (_queueOperationFinished is { } queueOperationFinished)
             await queueOperationFinished.Task;
         SettingsService.QueuePersistenceSettingChanged -= QueuePersistenceSettingChanged;

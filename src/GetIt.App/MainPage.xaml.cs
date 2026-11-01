@@ -1,8 +1,13 @@
 using System;
+using System.Collections.ObjectModel;
+using System.Linq;
 using System.Text;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Markup;
+using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.System;
 using Windows.UI.Core;
@@ -23,6 +28,7 @@ public sealed partial class MainPage : Page
     public MainPage()
     {
         InitializeComponent();
+        ViewModel.PlaylistSelectionRequested = ShowPlaylistSelectionAsync;
         Unloaded += (_, _) => ViewModel.DeactivateClipboardMonitoring();
 
         var focusLink = new KeyboardAccelerator { Key = VirtualKey.L, Modifiers = VirtualKeyModifiers.Control };
@@ -162,6 +168,182 @@ public sealed partial class MainPage : Page
             AppLogger.LogException(ex, "Failed to show the multiple-links dialog");
             ViewModel.InputError = "Não foi possível abrir a inclusão de vários links. Tente novamente.";
         }
+    }
+
+    private async void AddPlaylist_Click(object sender, RoutedEventArgs e)
+    {
+        await ViewModel.AddPlaylistFromUrlAsync();
+    }
+
+    private async Task<PlaylistInputSelection> ShowPlaylistSelectionAsync(PlaylistPreview preview, bool isAmbiguous)
+    {
+        if (isAmbiguous)
+        {
+            var choiceDialog = new ContentDialog
+            {
+                Title = "Link de vídeo e playlist",
+                Content = "Este endereço identifica um vídeo e também uma playlist. Escolha se deseja adicionar somente o vídeo ou revisar a playlist.",
+                PrimaryButtonText = "Escolher vídeos da playlist",
+                SecondaryButtonText = "Somente este vídeo",
+                CloseButtonText = "Cancelar",
+                DefaultButton = ContentDialogButton.Primary,
+                RequestedTheme = CurrentTheme,
+                XamlRoot = XamlRoot
+            };
+            var choice = await choiceDialog.ShowAsync();
+            if (choice == ContentDialogResult.Secondary)
+                return new PlaylistInputSelection(PlaylistInputChoice.AddVideoOnly, Array.Empty<int>());
+            if (choice != ContentDialogResult.Primary)
+                return new PlaylistInputSelection(PlaylistInputChoice.Cancel, Array.Empty<int>());
+        }
+
+        if (preview.Videos.Count == 0)
+        {
+            var emptyDialog = new ContentDialog
+            {
+                Title = "Nenhum vídeo disponível",
+                Content = "O yt-dlp não encontrou itens selecionáveis nesta playlist. Ela pode estar vazia, indisponível ou não ser compatível.",
+                CloseButtonText = "Fechar",
+                RequestedTheme = CurrentTheme,
+                XamlRoot = XamlRoot
+            };
+            await emptyDialog.ShowAsync();
+            return new PlaylistInputSelection(PlaylistInputChoice.Cancel, Array.Empty<int>());
+        }
+
+        var items = new ObservableCollection<PlaylistVideoSelectionViewModel>(
+            preview.Videos.Select(video => new PlaylistVideoSelectionViewModel(video)));
+        var selectedCount = new TextBlock { FontSize = 13, TextWrapping = TextWrapping.Wrap };
+        var note = new TextBlock { FontSize = 12, TextWrapping = TextWrapping.Wrap };
+        if (preview.IsPartial)
+        {
+            note.Text = preview.TotalCount is { } total
+                ? $"Exibindo os primeiros {items.Count} de {total} itens. Para manter a prévia rápida, selecione somente entre os itens exibidos."
+                : $"O extrator retornou uma lista limitada a {items.Count} itens; ela pode não representar a playlist inteira.";
+        }
+        else
+        {
+            note.Text = preview.TotalCount is { } total
+                ? $"{total} itens encontrados. Itens sem endereço individual seguro não podem ser selecionados."
+                : $"{items.Count} itens exibidos. Itens sem endereço individual seguro não podem ser selecionados.";
+        }
+
+        var selectAllButton = new Button { Content = "Selecionar todos", MinHeight = 32 };
+        var clearButton = new Button { Content = "Desmarcar todos", MinHeight = 32 };
+        var list = new ListView
+        {
+            ItemsSource = items,
+            SelectionMode = ListViewSelectionMode.None,
+            ItemTemplate = (DataTemplate)XamlReader.Load("""
+                <DataTemplate xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+                    <Grid ColumnSpacing="10" Padding="4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="64" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                  IsEnabled="{Binding IsEligible}"
+                                  AutomationProperties.Name="{Binding DisplayTitle}"
+                                  VerticalAlignment="Center" />
+                        <Border Grid.Column="1" Width="64" Height="40" CornerRadius="5"
+                                Background="{ThemeResource AppInputBrush}">
+                            <Image Source="{Binding ThumbnailImage}" Width="64" Height="40"
+                                   Stretch="UniformToFill" VerticalAlignment="Center" />
+                        </Border>
+                        <StackPanel Grid.Column="2" Spacing="2" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding DisplayTitle}" TextWrapping="Wrap" MaxLines="2" />
+                            <TextBlock Text="{Binding DetailsText}" FontSize="12"
+                                       Foreground="{ThemeResource AppSecondaryTextBrush}" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Grid>
+                </DataTemplate>
+                """),
+            MaxHeight = 420,
+            VerticalAlignment = VerticalAlignment.Stretch
+        };
+        var content = new StackPanel { Spacing = 10, MinWidth = 380 };
+        var heading = string.IsNullOrWhiteSpace(preview.Title) ? "Playlist" : preview.Title;
+        if (!string.IsNullOrWhiteSpace(preview.Uploader))
+            heading += $" · {preview.Uploader}";
+        var headingGrid = new Grid { ColumnSpacing = 12 };
+        headingGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        headingGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        if (Uri.TryCreate(preview.Thumbnail, UriKind.Absolute, out var playlistThumbnail) &&
+            (playlistThumbnail.Scheme == Uri.UriSchemeHttps || playlistThumbnail.Scheme == Uri.UriSchemeHttp))
+        {
+            var image = new Image
+            {
+                Source = new BitmapImage { UriSource = playlistThumbnail, DecodePixelWidth = 144 },
+                Width = 72,
+                Height = 54,
+                Stretch = Microsoft.UI.Xaml.Media.Stretch.UniformToFill,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            AutomationProperties.SetName(image, "Miniatura da playlist");
+            headingGrid.Children.Add(image);
+        }
+
+        var headingText = new TextBlock
+        {
+            Text = heading,
+            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+            TextWrapping = TextWrapping.Wrap
+        };
+        Grid.SetColumn(headingText, headingGrid.Children.Count > 0 ? 1 : 0);
+        headingGrid.Children.Add(headingText);
+        content.Children.Add(headingGrid);
+        content.Children.Add(note);
+        var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        actions.Children.Add(selectAllButton);
+        actions.Children.Add(clearButton);
+        content.Children.Add(actions);
+        content.Children.Add(selectedCount);
+        content.Children.Add(list);
+
+        var dialog = new ContentDialog
+        {
+            Title = "Selecionar vídeos",
+            Content = content,
+            PrimaryButtonText = "Adicionar selecionados",
+            SecondaryButtonText = "Cancelar",
+            DefaultButton = ContentDialogButton.Primary,
+            RequestedTheme = CurrentTheme,
+            XamlRoot = XamlRoot
+        };
+
+        void UpdateSelectionState()
+        {
+            var count = items.Count(item => item.IsSelected && item.IsEligible);
+            selectedCount.Text = $"{count} selecionados · limite de {BatchUrlPolicy.MaximumLinks} por adição";
+            dialog.IsPrimaryButtonEnabled = count > 0;
+        }
+
+        foreach (var item in items)
+            item.PropertyChanged += (_, args) =>
+            {
+                if (args.PropertyName == nameof(PlaylistVideoSelectionViewModel.IsSelected))
+                    UpdateSelectionState();
+            };
+        selectAllButton.Click += (_, _) =>
+        {
+            foreach (var item in items.Where(item => item.IsEligible))
+                item.IsSelected = true;
+        };
+        clearButton.Click += (_, _) =>
+        {
+            foreach (var item in items)
+                item.IsSelected = false;
+        };
+        UpdateSelectionState();
+
+        var result = await dialog.ShowAsync();
+        if (result != ContentDialogResult.Primary)
+            return new PlaylistInputSelection(PlaylistInputChoice.Cancel, Array.Empty<int>());
+
+        return new PlaylistInputSelection(
+            PlaylistInputChoice.SelectPlaylistVideos,
+            items.Where(item => item.IsSelected && item.IsEligible).Select(item => item.Position).ToArray());
     }
 
     private async void Paste_Click(object sender, RoutedEventArgs e)

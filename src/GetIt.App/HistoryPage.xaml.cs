@@ -1,17 +1,39 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.ComponentModel;
+using Windows.Foundation;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using GetIt_App.Services;
 using Windows.Media.Core;
 using Microsoft.UI.Xaml.Navigation;
+using Windows.Media.Playback;
 
 namespace GetIt_App;
 
 public sealed partial class HistoryPage : Page
 {
     private List<HistoryItem> _allHistory = [];
+    private HistoryItem? _currentPlayingItem;
+    private MediaPlaybackSession? _trackedPlaybackSession;
+    private readonly Dictionary<Button, PlaybackButtonState> _playbackButtons = [];
+
+    private sealed class PlaybackButtonState(
+        HistoryItem item,
+        ScrollViewer scrollViewer,
+        PropertyChangedEventHandler propertyChangedHandler)
+    {
+        public HistoryItem Item { get; } = item;
+        public ScrollViewer ScrollViewer { get; } = scrollViewer;
+        public TextBlock TextBlock { get; init; } = null!;
+        public PropertyChangedEventHandler PropertyChangedHandler { get; } = propertyChangedHandler;
+        public DispatcherTimer Timer { get; } = new() { Interval = TimeSpan.FromMilliseconds(16) };
+        public EventHandler<object>? TickHandler { get; set; }
+        public double Offset { get; set; }
+        public long AnimationStartedAt { get; set; }
+    }
 
     public HistoryPage()
     {
@@ -29,6 +51,9 @@ public sealed partial class HistoryPage : Page
         if (PlayerElement.MediaPlayer != null)
         {
             PlayerElement.MediaPlayer.Pause();
+            if (_currentPlayingItem is not null)
+                _currentPlayingItem.IsPlaying = false;
+            StopTrackingPlaybackState();
             PlayerElement.Source = null;
             PlayerEmptyState.Visibility = Visibility.Visible;
         }
@@ -182,6 +207,11 @@ public sealed partial class HistoryPage : Page
             var path = ResolveActualPath(rawPath);
             if (File.Exists(path))
             {
+                if (_currentPlayingItem is not null)
+                    _currentPlayingItem.IsPlaying = false;
+                _currentPlayingItem = _allHistory.FirstOrDefault(item =>
+                    string.Equals(item.LocalFilePath, rawPath, StringComparison.OrdinalIgnoreCase));
+                TrackPlaybackState();
                 PlayerEmptyState.Visibility = Visibility.Collapsed;
                 PlayerElement.Source = MediaSource.CreateFromUri(new Uri(path));
                 PlayerElement.MediaPlayer.Play();
@@ -192,5 +222,124 @@ public sealed partial class HistoryPage : Page
                 PlayerEmptyState.Visibility = Visibility.Visible;
             }
         }
+    }
+
+    private void PlayButton_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button button ||
+            button.DataContext is not HistoryItem item ||
+            button.Content is not ScrollViewer scrollViewer ||
+            scrollViewer.Content is not TextBlock textBlock)
+        {
+            return;
+        }
+
+        PlayButton_Unloaded(button, new RoutedEventArgs());
+        PropertyChangedEventHandler handler = (_, args) =>
+        {
+            if (args.PropertyName == nameof(HistoryItem.IsPlaying))
+                DispatcherQueue.TryEnqueue(() => UpdatePlayButtonMarquee(button, item));
+        };
+        var state = new PlaybackButtonState(item, scrollViewer, handler)
+        {
+            TextBlock = textBlock
+        };
+        state.TickHandler = (_, _) => PlaybackButtonMarquee_Tick(state);
+        state.Timer.Tick += state.TickHandler;
+        item.PropertyChanged += handler;
+        _playbackButtons[button] = state;
+        DispatcherQueue.TryEnqueue(() => UpdatePlayButtonMarquee(button, item));
+    }
+
+    private void PlayButton_Unloaded(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button button || !_playbackButtons.Remove(button, out var registration))
+            return;
+
+        registration.Item.PropertyChanged -= registration.PropertyChangedHandler;
+        registration.Timer.Stop();
+        if (registration.TickHandler is not null)
+            registration.Timer.Tick -= registration.TickHandler;
+        registration.TextBlock.Width = double.NaN;
+        registration.ScrollViewer.ChangeView(0, null, null, disableAnimation: true);
+    }
+
+    private void UpdatePlayButtonMarquee(Button button, HistoryItem item)
+    {
+        if (!_playbackButtons.TryGetValue(button, out var state) ||
+            !ReferenceEquals(state.Item, item))
+        {
+            return;
+        }
+
+        state.Offset = 0;
+        state.AnimationStartedAt = Stopwatch.GetTimestamp();
+        state.TextBlock.Width = double.NaN;
+        state.ScrollViewer.ChangeView(0, null, null, disableAnimation: true);
+        if (!item.IsPlaying)
+        {
+            state.Timer.Stop();
+            return;
+        }
+
+        SetNaturalTextWidth(state);
+        state.Timer.Start();
+    }
+
+    private void PlaybackButtonMarquee_Tick(PlaybackButtonState state)
+    {
+        var scrollViewer = state.ScrollViewer;
+        var maximumOffset = scrollViewer.ScrollableWidth;
+        if (maximumOffset <= 2)
+        {
+            SetNaturalTextWidth(state);
+            return;
+        }
+
+        const double cycleDurationSeconds = 6;
+        var elapsedSeconds = (Stopwatch.GetTimestamp() - state.AnimationStartedAt) /
+            (double)Stopwatch.Frequency;
+        var progress = elapsedSeconds % cycleDurationSeconds / cycleDurationSeconds;
+        var easedPosition = (1 - Math.Cos(progress * 2 * Math.PI)) / 2;
+        state.Offset = easedPosition * maximumOffset;
+        scrollViewer.ChangeView(state.Offset, null, null, disableAnimation: true);
+    }
+
+    private static void SetNaturalTextWidth(PlaybackButtonState state)
+    {
+        state.TextBlock.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        var desiredWidth = state.TextBlock.DesiredSize.Width;
+        if (double.IsFinite(desiredWidth) && desiredWidth > state.ScrollViewer.ViewportWidth)
+            state.TextBlock.Width = desiredWidth;
+    }
+
+    private void TrackPlaybackState()
+    {
+        var session = PlayerElement.MediaPlayer?.PlaybackSession;
+        if (ReferenceEquals(session, _trackedPlaybackSession))
+            return;
+
+        StopTrackingPlaybackState();
+        _trackedPlaybackSession = session;
+        if (_trackedPlaybackSession is not null)
+            _trackedPlaybackSession.PlaybackStateChanged += PlaybackSession_PlaybackStateChanged;
+    }
+
+    private void StopTrackingPlaybackState()
+    {
+        if (_trackedPlaybackSession is not null)
+            _trackedPlaybackSession.PlaybackStateChanged -= PlaybackSession_PlaybackStateChanged;
+        _trackedPlaybackSession = null;
+    }
+
+    private void PlaybackSession_PlaybackStateChanged(MediaPlaybackSession sender, object args)
+    {
+        var isPlaying = sender.PlaybackState == MediaPlaybackState.Playing;
+        var item = _currentPlayingItem;
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (ReferenceEquals(item, _currentPlayingItem) && item is not null)
+                item.IsPlaying = isPlaying;
+        });
     }
 }

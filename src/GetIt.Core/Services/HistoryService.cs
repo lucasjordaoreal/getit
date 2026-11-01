@@ -4,12 +4,17 @@ using System.Text.Json.Serialization;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.ComponentModel;
 using GetIt_App;
 
 namespace GetIt_App.Services;
 
-public class HistoryItem
+public class HistoryItem : INotifyPropertyChanged
 {
+    private bool _isPlaying;
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
     public string Title { get; set; } = string.Empty;
     public string Url { get; set; } = string.Empty;
     public string Thumbnail { get; set; } = string.Empty;
@@ -24,6 +29,24 @@ public class HistoryItem
 
     [JsonIgnore]
     public string FileStatus => IsFileMissing ? "Arquivo não encontrado" : string.Empty;
+
+    [JsonIgnore]
+    public bool IsPlaying
+    {
+        get => _isPlaying;
+        set
+        {
+            if (_isPlaying == value)
+                return;
+
+            _isPlaying = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsPlaying)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(PlayButtonText)));
+        }
+    }
+
+    [JsonIgnore]
+    public string PlayButtonText => IsPlaying ? "Reproduzindo" : "Reproduzir";
 
     [JsonIgnore]
     public HistoryMediaKind MediaKind => HistoryFilterPolicy.GetMediaKind(LocalFilePath);

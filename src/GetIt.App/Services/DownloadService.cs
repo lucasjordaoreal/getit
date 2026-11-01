@@ -29,7 +29,12 @@ public interface IDownloadEngineHealthProvider
     Task<string?> GetEngineProblemAsync(CancellationToken cancellationToken = default);
 }
 
-public partial class DownloadService : IDownloadService, IDownloadEngineHealthProvider
+public interface IPlaylistPreviewService
+{
+    Task<PlaylistPreview?> FetchPlaylistPreviewAsync(string url, CancellationToken cancellationToken = default);
+}
+
+public partial class DownloadService : IDownloadService, IDownloadEngineHealthProvider, IPlaylistPreviewService
 {
     [GeneratedRegex(@"\[download\]\s+(?<percent>\d+\.\d+)%\s+of\s+.*?\s+at\s+(?<speed>.*?)\s+ETA\s+(?<eta>.*)")]
     private static partial Regex ProgressDetailedRegex();
@@ -469,6 +474,113 @@ public partial class DownloadService : IDownloadService, IDownloadEngineHealthPr
         var currentPath = Environment.GetEnvironmentVariable("PATH") ?? string.Empty;
         psi.Environment["PATH"] = binPath + ";" + currentPath;
         return psi;
+    }
+
+    public async Task<PlaylistPreview?> FetchPlaylistPreviewAsync(string url, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(url);
+        await MetadataSlots.WaitAsync(cancellationToken);
+        try
+        {
+            var issues = await CheckEngineAsync(
+                includeFfmpeg: false,
+                includeFfprobe: false,
+                cancellationToken: cancellationToken);
+            if (issues.Count > 0)
+                throw new InvalidOperationException(FormatEngineIssues(issues));
+
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeout.CancelAfter(TimeSpan.FromSeconds(90));
+            var previewPlaylistItems = string.Join(
+                ",",
+                Enumerable.Range(1, PlaylistPreviewPolicy.MaximumPreviewItems + 1));
+            var processStartInfo = CreateProcessStartInfo(new[]
+            {
+                "--ignore-config", "--force-ipv4", "--yes-playlist", "--flat-playlist",
+                "--playlist-items", previewPlaylistItems,
+                "--no-warnings", "--socket-timeout", "20", "--retries", "2", "--extractor-retries", "1",
+                "--encoding", "UTF-8", "-J", "--", url
+            });
+            using var process = new Process { StartInfo = processStartInfo };
+            try
+            {
+                timeout.Token.ThrowIfCancellationRequested();
+                process.Start();
+                using var registration = timeout.Token.Register(() => TerminateProcess(process));
+                var outputTask = ReadProcessOutputAsync(
+                    process.StandardOutput,
+                    8 * 1024 * 1024,
+                    timeout.Token,
+                    onLimitExceeded: () => TerminateProcess(process));
+                var errorTask = ReadProcessOutputAsync(process.StandardError, 64 * 1024, timeout.Token, truncate: true);
+                await Task.WhenAll(outputTask, errorTask, process.WaitForExitAsync(timeout.Token));
+
+                var (jsonOutput, outputTruncated) = outputTask.Result;
+                var (errorOutput, _) = errorTask.Result;
+                if (outputTruncated)
+                    throw new InvalidDataException("A resposta da playlist excedeu o limite de memória permitido.");
+                if (process.ExitCode != 0 || string.IsNullOrWhiteSpace(jsonOutput))
+                {
+                    var message = string.IsNullOrWhiteSpace(errorOutput)
+                        ? "Não foi possível ler esta playlist. Ela pode estar vazia, indisponível ou não ser compatível com o yt-dlp."
+                        : errorOutput.Trim();
+                    throw new InvalidOperationException(message);
+                }
+
+                try
+                {
+                    return PlaylistPreviewPolicy.Parse(jsonOutput);
+                }
+                catch (System.Text.Json.JsonException exception)
+                {
+                    throw new InvalidDataException("A engine retornou metadados incompletos ou inválidos para esta playlist.", exception);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                await StopProcessAsync(process);
+                cancellationToken.ThrowIfCancellationRequested();
+                throw new TimeoutException("A leitura da playlist demorou demais. Verifique sua conexão e tente novamente.");
+            }
+            catch
+            {
+                await StopProcessAsync(process);
+                throw;
+            }
+        }
+        finally
+        {
+            MetadataSlots.Release();
+        }
+    }
+
+    private static async Task<(string Text, bool WasTruncated)> ReadProcessOutputAsync(
+        StreamReader reader,
+        int maximumCharacters,
+        CancellationToken cancellationToken,
+        bool truncate = false,
+        Action? onLimitExceeded = null)
+    {
+        var output = new StringBuilder(Math.Min(maximumCharacters, 16 * 1024));
+        var buffer = new char[8192];
+        var wasTruncated = false;
+        while (true)
+        {
+            var count = await reader.ReadAsync(buffer.AsMemory(), cancellationToken);
+            if (count == 0)
+                return (output.ToString(), wasTruncated);
+
+            var remaining = maximumCharacters - output.Length;
+            if (count > remaining && !wasTruncated)
+            {
+                wasTruncated = true;
+                if (!truncate)
+                    onLimitExceeded?.Invoke();
+            }
+
+            if (remaining > 0)
+                output.Append(buffer, 0, Math.Min(count, remaining));
+        }
     }
 
     public async Task<VideoMetadata?> FetchMetadataAsync(string url, CancellationToken cancellationToken = default)
