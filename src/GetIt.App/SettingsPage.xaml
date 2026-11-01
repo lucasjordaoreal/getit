@@ -82,6 +82,28 @@
                             <InfoBar x:Name="FfmpegSettingsInfoBar" IsOpen="False" IsClosable="True" />
                         </StackPanel>
                         <Border Height="1" Background="{ThemeResource AppBorderBrush}" />
+                        <StackPanel Spacing="10">
+                            <TextBlock Text="Runtime JavaScript para YouTube" FontSize="17" FontWeight="SemiBold"
+                                       Foreground="{ThemeResource AppTextBrush}" />
+                            <TextBlock Text="O yt-dlp usa Deno para os componentes JavaScript de alguns extratores, incluindo YouTube. Instale Deno 2.3.0 ou posterior e selecione a pasta que contém deno.exe. O GetIt não inclui nem baixa esse runtime."
+                                       FontSize="13" Foreground="{ThemeResource AppSecondaryTextBrush}"
+                                       TextWrapping="Wrap" />
+                            <TextBlock x:Name="DenoFolderText" FontSize="13" Foreground="{ThemeResource AppTextBrush}"
+                                       TextWrapping="Wrap" />
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <Button x:Name="SelectDenoFolderButton" Content="Selecionar pasta do Deno"
+                                        Click="SelectDenoFolder_Click" MinHeight="40" />
+                                <Button x:Name="ResetDenoFolderButton" Content="Usar configuração automática"
+                                        Click="ResetDenoFolder_Click" MinHeight="40" />
+                                <ProgressRing x:Name="DenoProgressRing" Width="20" Height="20"
+                                              IsActive="False" Visibility="Collapsed" />
+                            </StackPanel>
+                            <HyperlinkButton Content="Obter Deno"
+                                             NavigateUri="https://docs.deno.com/runtime/getting_started/installation/"
+                                             HorizontalAlignment="Left" />
+                            <InfoBar x:Name="DenoSettingsInfoBar" IsOpen="False" IsClosable="True" />
+                        </StackPanel>
+                        <Border Height="1" Background="{ThemeResource AppBorderBrush}" />
                         <StackPanel Spacing="12">
                             <TextBlock Text="Atualizações" FontSize="17" FontWeight="SemiBold" Foreground="{ThemeResource AppTextBrush}" />
                             <ToggleSwitch x:Name="AppAutoUpdateToggle" Header="Atualizar o GetIt automaticamente"

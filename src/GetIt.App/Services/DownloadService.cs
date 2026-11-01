@@ -101,6 +101,7 @@ public partial class DownloadService : IDownloadService, IDownloadEngineHealthPr
     }
 
     private static string EngineBinPath => ResolveBinPath();
+
     private static string FfmpegBinPath
     {
         get
@@ -118,6 +119,28 @@ public partial class DownloadService : IDownloadService, IDownloadEngineHealthPr
             catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)
             {
                 AppLogger.LogException(exception, "Configured FFmpeg folder is not a valid path");
+                return configuredPath;
+            }
+        }
+    }
+
+    private static string DenoBinPath
+    {
+        get
+        {
+            var configuredPath = SettingsService.LoadSettings().DenoBinPath;
+            if (string.IsNullOrWhiteSpace(configuredPath))
+            {
+                return ResolveBinPath();
+            }
+
+            try
+            {
+                return Path.GetFullPath(configuredPath);
+            }
+            catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)
+            {
+                AppLogger.LogException(exception, "Configured Deno folder is not a valid path");
                 return configuredPath;
             }
         }
@@ -475,6 +498,7 @@ public partial class DownloadService : IDownloadService, IDownloadEngineHealthPr
         var binPath = EngineBinPath;
         var ytdlpPath = Path.Combine(binPath, "yt-dlp.exe");
         var ffmpegBinPath = FfmpegBinPath;
+        var denoBinPath = DenoBinPath;
 
         var psi = new ProcessStartInfo
         {
@@ -492,10 +516,9 @@ public partial class DownloadService : IDownloadService, IDownloadEngineHealthPr
         psi.Environment["PYTHONIOENCODING"] = "utf-8";
         psi.Environment["PYTHONUTF8"] = "1";
         // Add bin path to PATH so yt-dlp can find node.exe or deno.exe
-        var currentPath = Environment.GetEnvironmentVariable("PATH") ?? string.Empty;
-        psi.Environment["PATH"] = string.Join(";", new[] { binPath, ffmpegBinPath, currentPath }
-            .Where(path => !string.IsNullOrWhiteSpace(path))
-            .Distinct(StringComparer.OrdinalIgnoreCase));
+        var currentPath = Environment.GetEnvironmentVariable("PATH");
+        psi.Environment["PATH"] = DownloadEngineEnvironment.BuildChildPath(
+            binPath, ffmpegBinPath, denoBinPath, currentPath);
         return psi;
     }
 

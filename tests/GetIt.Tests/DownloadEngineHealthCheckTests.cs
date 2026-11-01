@@ -114,6 +114,44 @@ public sealed class DownloadEngineHealthCheckTests
         Assert.Equal(new Version(major, minor, build), version);
     }
 
+    [Fact]
+    public async Task DenoEngineValidator_ReportsMissingRuntime()
+    {
+        using var directory = new TemporaryDirectory();
+
+        var issues = await DenoEngineValidator.ValidateDirectoryAsync(directory.Path);
+
+        var issue = Assert.Single(issues);
+        Assert.Equal("deno.exe", issue.Component);
+        Assert.Contains("não foi encontrado", issue.Reason);
+    }
+
+    [Theory]
+    [InlineData("deno 2.7.1 (stable, release, x86_64-pc-windows-msvc)", 2, 7, 1)]
+    [InlineData("deno 2.3.0 (stable, release, x86_64-pc-windows-msvc)", 2, 3, 0)]
+    public void DenoEngineValidator_ParsesOfficialVersionBanners(
+        string banner, int major, int minor, int build)
+    {
+        var version = DenoEngineValidator.ParseVersion(banner);
+
+        Assert.Equal(new Version(major, minor, build), version);
+    }
+
+    [Fact]
+    public void DownloadEngineEnvironment_AddsExternalDenoOnlyToChildPath()
+    {
+        var path = DownloadEngineEnvironment.BuildChildPath(
+            @"C:\GetIt\Engine\Bin",
+            @"C:\Media\FFmpeg",
+            @"C:\Tools\Deno",
+            @"C:\Windows\System32;C:\Windows");
+
+        Assert.Equal(
+            string.Join(Path.PathSeparator, @"C:\GetIt\Engine\Bin", @"C:\Media\FFmpeg",
+                @"C:\Tools\Deno", @"C:\Windows\System32;C:\Windows"),
+            path);
+    }
+
     private sealed class TemporaryDirectory : IDisposable
     {
         public string Path { get; } = System.IO.Path.Combine(

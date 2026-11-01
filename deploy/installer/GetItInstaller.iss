@@ -65,6 +65,14 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 ; Copia tudo da pasta de publicação (incluindo GetIt.exe, Libs/, Engine/, etc.)
 Source: "..\..\src\GetIt.App\bin\Release\net10.0-windows10.0.26100.0\win-x64\publish\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
+[InstallDelete]
+; Remove engines GPL e runtimes que versões anteriores copiavam para a pasta do aplicativo.
+Type: files; Name: "{app}\Engine\Bin\ffmpeg.exe"
+Type: files; Name: "{app}\Engine\Bin\ffprobe.exe"
+Type: files; Name: "{app}\Engine\Bin\ffplay.exe"
+Type: files; Name: "{app}\Engine\Bin\deno.exe"
+Type: files; Name: "{app}\Engine\Bin\node.exe"
+
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon

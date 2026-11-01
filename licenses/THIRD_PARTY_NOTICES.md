@@ -1,12 +1,12 @@
 # GetIt — avisos de componentes de terceiros
 
-**Estado da distribuição planejada para 0.1.2: BLOQUEADA até obter e verificar os avisos de terceiros do Deno.**
+**Composição da distribuição planejada para 0.1.2:** os avisos abaixo descrevem os componentes efetivamente empacotados; Deno e FFmpeg/FFprobe são externos e não serão redistribuídos pelo instalador.
 
 Este documento separa os binários locais da composição planejada para o instalador. Os hashes identificam os arquivos locais examinados; não substituem assinatura digital nem demonstram, por si sós, a origem de um binário. Os textos de licença preservados estão em [`texts/`](./texts/).
 
 ## Engine local examinada (não incluída na nova composição planejada)
 
-Os executáveis abaixo continuam na pasta local de desenvolvimento e em artefatos anteriores. O projeto passou a excluir FFmpeg, FFprobe, FFplay e Node.js da publicação planejada. FFmpeg/FFprobe serão configurados pelo usuário como dependência externa; o GetIt não os baixa nem os atualiza.
+Os executáveis abaixo continuam na pasta local de desenvolvimento e em artefatos anteriores. A nova publicação exclui FFmpeg, FFprobe, FFplay, Node.js e Deno. FFmpeg/FFprobe serão configurados como dependência externa; o GetIt não os baixa nem os atualiza.
 
 | Arquivo na instalação | Versão observada | SHA-256 | Origem e licença identificadas | Situação |
 |---|---:|---|---|---|
@@ -15,8 +15,8 @@ Os executáveis abaixo continuam na pasta local de desenvolvimento e em artefato
 | `Engine/Bin/ffplay.exe` | FFmpeg 8.1, `essentials_build-www.gyan.dev` | `BA1B492EC6F784F4DD72813C7CD886BB3ABAF11647DB95ACF95A7E35E6A9C1A1` | Distribuído no mesmo pacote da Gyan; build estática GPLv3. | **Não redistribuir:** além da pendência de fontes, não foram encontradas chamadas de FFplay nos fluxos do GetIt. |
 | `Engine/Bin/yt-dlp.exe` | 2026.08.19 (Python 3.10.11) | `66674953FE251B89F4D08C5F0E35E0728679BD67AB3D7D05C0562AF101DD3E7A` | Release oficial `yt-dlp/yt-dlp`, tag `2026.08.19`; hash coincide com o asset oficial `yt-dlp.exe`. O agregado de licenças de terceiros está embutido no executável PyInstaller. | **Documentação obtida:** `texts/yt-dlp-2026.08.19-THIRD-PARTY-LICENSES.txt` foi extraído do executável; SHA-256 `5B7BC105C562B81B90D1A2CD5A8CC8B336EE107AE0AE81CE58450CD8B1BC2AD4`. O arquivo inclui licenças de Python e informa uma oferta de fontes pelos mantenedores de yt-dlp. |
 | `Engine/Bin/node.exe` | Node.js 20.11.1 | `BC585910690318AAEBE3C57669CB83CA9D1E5791EFD63195E238F54686E6C2EC` | O hash coincide com `win-x64/node.exe` no `SHASUMS256.txt` oficial de Node.js 20.11.1. Licença MIT; o arquivo `LICENSE` dessa tag também contém avisos de componentes de terceiros do Node. A linha 20 está EOL desde março de 2026. O GetIt só acrescenta a pasta ao `PATH`; não foi encontrada seleção explícita `--js-runtimes node`. A documentação atual do yt-dlp requer Node 22+ e configuração explícita. | **VALIDADO** para o binário e texto de licença identificados; não selecionado pelo fluxo observado e abaixo do mínimo atual se Node vier a ser habilitado. |
-| `Engine/Bin/deno.exe` | Deno 2.7.1 (V8 14.5.201.2-rusty; TypeScript 5.9.2) | `6C35A4C45D521B340E5CE78DFB25014E5B04894067B5E71C1180273FFA5B3792` | A release oficial `v2.7.1` (commit `1df618d969894353731981a17784816167ad82fb`) e seu código-fonte declaram MIT. O SHA-256 publicado do ZIP oficial x64 é `94d71d4772436de27a0495933ca4bab7b6895992622b65baeaf4b7995dae1e69`, mas não foi comparado ao executável local. A documentação do yt-dlp habilita Deno por padrão e requer versão mínima 2.3.0. | **BLOQUEADOR:** ainda não há inventário/notices completos das dependências Rust/V8 efetivamente incorporadas nem correspondência binária confirmada. O instalador exige `Deno-THIRD-PARTY-NOTICES.txt`; esse material não foi obtido. |
-| `Engine/Bin/help.txt` | Snapshot de ajuda do yt-dlp; sem versão própria | `FCD5E488D6EC52A8A71C9A10DEC7F6B6BE48BDE37A6F169A6990B686165264C9` | O cabeçalho identifica o comando `yt-dlp.exe`; acompanha o binário cuja release informa Unlicense. | **PENDENTE:** o processo que gerou o snapshot não está registrado. |
+| `Engine/Bin/deno.exe` | Deno 2.7.1 (V8 14.5.201.2-rusty; TypeScript 5.9.2) | `6C35A4C45D521B340E5CE78DFB25014E5B04894067B5E71C1180273FFA5B3792` | A release oficial `v2.7.1` (commit `1df618d969894353731981a17784816167ad82fb`) declara MIT para Deno. O SHA-256 oficial do ZIP x64, `94d71d4772436de27a0495933ca4bab7b6895992622b65baeaf4b7995dae1e69`, foi verificado; o `deno.exe` extraído tem o mesmo SHA-256 do arquivo local. | **Não redistribuído na nova versão:** o ZIP verificado contém somente `deno.exe`, sem notices. O código-fonte/`Cargo.lock` não basta para afirmar um inventário completo das bibliotecas Rust/V8 incorporadas. O usuário configura uma instalação externa em **Configurações > Runtime JavaScript para YouTube**; mínimo 2.3.0. |
+| `Engine/Bin/help.txt` | Snapshot de ajuda do yt-dlp; sem versão própria | `FCD5E488D6EC52A8A71C9A10DEC7F6B6BE48BDE37A6F169A6990B686165264C9` | Arquivo local auxiliar; não é necessário para executar o yt-dlp. | **Não redistribuído:** o processo de geração não foi registrado e o app não o utiliza. |
 
 ## Build candidata (não distribuída)
 
@@ -60,10 +60,11 @@ A publicação anterior também contém assemblies/runtime self-contained do .NE
 
 ## Composição proposta para a publicação 0.1.2
 
-- `yt-dlp.exe` e `deno.exe` permanecem na publicação, sujeitos à verificação de licenças; FFmpeg, FFprobe, FFplay e Node.js são explicitamente excluídos.
+- Somente `yt-dlp.exe` é incluído da pasta de engine; Deno, FFmpeg, FFprobe, FFplay e Node.js são explicitamente excluídos.
 - O yt-dlp procura FFmpeg/FFprobe numa pasta externa selecionada em **Configurações > Engine de mídia**. O app valida versão, correspondência entre FFmpeg/FFprobe e encoders necessários, sem baixar os executáveis.
-- O pacote de avisos de yt-dlp foi extraído do EXE de hash identificado acima. Node.js e `help.txt` não são copiados.
-- **O instalador continua bloqueado** até obter e revisar a lista de licenças/notices das dependências incorporadas ao Deno 2.7.1. A inclusão apenas da licença MIT do Deno não resolve esse bloqueador.
+- Para extratores do YouTube que precisam de JavaScript, o usuário configura Deno 2.3.0 ou posterior em **Configurações > Runtime JavaScript para YouTube**. O caminho só é acrescentado ao ambiente dos processos filhos do yt-dlp; o PATH global não é alterado.
+- O pacote oficial de avisos de yt-dlp foi extraído do EXE de hash identificado acima. Deno, Node.js e `help.txt` não são copiados.
+- O instalador não distribui Deno, então não afirma nem depende de um inventário incompleto das dependências Rust/V8. A licença MIT de Deno é preservada no repositório, mas não apresentada como licença suficiente para redistribuir o binário e suas bibliotecas.
 - Os quatro textos de licença FFmpeg existentes são materiais de auditoria/localidade e não substituem fontes correspondentes. A nova publicação não deverá incluir os binários Gyan nem declarar a conformidade deles.
 
 `Microsoft.Windows.SDK.BuildTools` 10.0.26100.4654 e Inno Setup 6.7.3 foram usados como ferramentas de build; não foram identificados como executáveis do aplicativo instalado. O app não inclui essas ferramentas como dependências de runtime.
@@ -81,6 +82,7 @@ Os documentos de terceiros selecionados pelo projeto são publicados em `{app}\L
 - [Licença yt-dlp 2026.08.19](https://github.com/yt-dlp/yt-dlp/blob/2026.08.19/LICENSE)
 - [Licença Deno v2.7.1](https://github.com/denoland/deno/blob/v2.7.1/LICENSE.md)
 - [Release Deno v2.7.1](https://github.com/denoland/deno/releases/tag/v2.7.1)
+- [SHA-256 oficial do asset Deno Windows x64](https://github.com/denoland/deno/releases/download/v2.7.1/deno-x86_64-pc-windows-msvc.zip.sha256sum)
 - [Licença Node.js v20.11.1](https://github.com/nodejs/node/blob/v20.11.1/LICENSE)
 - [Checksums Node.js v20.11.1](https://nodejs.org/dist/v20.11.1/SHASUMS256.txt)
 - [yt-dlp: dependências JavaScript e runtimes](https://github.com/yt-dlp/yt-dlp/wiki/EJS)

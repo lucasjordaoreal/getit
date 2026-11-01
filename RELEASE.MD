@@ -3,6 +3,8 @@
 ### ✨ Novidades e melhorias:
 - **Base atualizada:** migração do aplicativo para .NET 10 e Windows App SDK self-contained na publicação x64.
 - **Engine de mídia externa:** configuração de uma pasta com FFmpeg/FFprobe, com validação de versões e encoders necessários; os binários não são baixados nem incluídos no instalador.
+- **Runtime JavaScript externo:** Deno pode ser configurado para os extratores do YouTube que exigem JavaScript; o instalador não o redistribui e a configuração é validada.
+- **Atualização de engine:** durante a atualização in-place, executáveis FFmpeg/FFprobe/FFplay, Deno e Node.js copiados por versões anteriores são removidos do diretório do aplicativo. Configurações e histórico em `%APPDATA%\GetIt` são preservados; se FFmpeg apontava para a pasta da instalação antiga, configure uma pasta externa após atualizar.
 - **Downloads mais confiáveis:** fila sequencial, isolamento dos arquivos de cada operação, preservação contra sobrescrita acidental e retry de análise e download.
 - **Presets de download:** perfis MP4, MP3 a 320 kbps e FLAC para novos itens, com personalização individual e opções avançadas MOV e WAV.
 - **Links em lote:** pré-visualização de até 50 linhas, com identificação de URLs inválidas e repetidas antes de confirmar a inclusão na fila.

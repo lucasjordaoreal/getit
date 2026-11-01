@@ -14,7 +14,7 @@ if (-not $version) {
 $version = $version.Trim()
 
 $engineBin = Join-Path $repoRoot "tools\Engine\Bin"
-$requiredEngineFiles = @("yt-dlp.exe", "deno.exe")
+$requiredEngineFiles = @("yt-dlp.exe")
 $missingEngineFiles = @(
     foreach ($fileName in $requiredEngineFiles) {
         $filePath = Join-Path $engineBin $fileName
@@ -29,7 +29,7 @@ if ($missingEngineFiles.Count -gt 0) {
     throw "Engine incompleta em '$engineBin'. Arquivos ausentes ou vazios: $($missingEngineFiles -join ', ')."
 }
 
-$excludedEngineFiles = @("ffmpeg.exe", "ffprobe.exe", "ffplay.exe", "node.exe")
+$excludedEngineFiles = @("ffmpeg.exe", "ffprobe.exe", "ffplay.exe", "node.exe", "deno.exe")
 $bundledExcludedEngineFiles = @(
     foreach ($fileName in $excludedEngineFiles) {
         if (Test-Path -LiteralPath (Join-Path $engineBin $fileName) -PathType Leaf) {
@@ -47,8 +47,6 @@ $requiredLicenseFiles = @(
     "THIRD_PARTY_SOURCES.md",
     "texts\yt-dlp-UNLICENSE.txt",
     "texts\yt-dlp-2026.08.19-THIRD-PARTY-LICENSES.txt",
-    "texts\Deno-MIT-LICENSE.md",
-    "texts\Deno-THIRD-PARTY-NOTICES.txt",
     "texts\dotnet-runtime-LICENSE.TXT",
     "texts\dotnet-runtime-THIRD-PARTY-NOTICES.TXT",
     "texts\CommunityToolkit-Mvvm-8.4.2-LICENSE.md",
@@ -108,6 +106,16 @@ if (-not $isccPath) {
     throw "Inno Setup não foi encontrado. Instale o Inno Setup 6 para gerar o instalador."
 }
 
+$publishDir = Join-Path $repoRoot "src\GetIt.App\bin\Release\net10.0-windows10.0.26100.0\win-x64\publish"
+$publishedEngineDir = Join-Path $publishDir "Engine\Bin"
+$staleEngineFiles = @($excludedEngineFiles + "help.txt")
+foreach ($fileName in $staleEngineFiles) {
+    $stalePath = Join-Path $publishedEngineDir $fileName
+    if (Test-Path -LiteralPath $stalePath -PathType Leaf) {
+        Remove-Item -LiteralPath $stalePath -Force
+    }
+}
+
 Write-Host "=== Compilando e Publicando GetIt v$version (Release x64) ===" -ForegroundColor Cyan
 dotnet publish "src\GetIt.App\GetIt.App.csproj" -c Release -r win-x64 --self-contained true -p:Platform=x64 -p:PublishSingleFile=false -o "src\GetIt.App\bin\Release\net10.0-windows10.0.26100.0\win-x64\publish"
 
@@ -115,7 +123,6 @@ if ($LASTEXITCODE -ne 0) {
     throw "Falha ao publicar o projeto."
 }
 
-$publishDir = Join-Path $repoRoot "src\GetIt.App\bin\Release\net10.0-windows10.0.26100.0\win-x64\publish"
 $missingPublishedLicenseFiles = @(
     foreach ($relativePath in $requiredLicenseFiles) {
         $publishedPath = Join-Path $publishDir (Join-Path "Licenses" ([System.IO.Path]::GetFileName($relativePath)))
@@ -128,7 +135,6 @@ if ($missingPublishedLicenseFiles.Count -gt 0) {
     throw "A publicação não contém todos os documentos de terceiros: $($missingPublishedLicenseFiles -join ', ')."
 }
 
-$publishedEngineDir = Join-Path $publishDir "Engine\Bin"
 $missingPublishedEngineFiles = @(
     foreach ($fileName in $requiredEngineFiles) {
         $filePath = Join-Path $publishedEngineDir $fileName
@@ -150,6 +156,17 @@ $unexpectedPublishedEngineFiles = @(
 )
 if ($unexpectedPublishedEngineFiles.Count -gt 0) {
     throw "Distribuição bloqueada: a publicação contém executáveis que não devem ser redistribuídos: $($unexpectedPublishedEngineFiles -join ', ')."
+}
+
+$unlistedPublishedEngineFiles = @(
+    if (Test-Path -LiteralPath $publishedEngineDir -PathType Container) {
+        Get-ChildItem -LiteralPath $publishedEngineDir -File |
+            Where-Object { $requiredEngineFiles -notcontains $_.Name } |
+            Select-Object -ExpandProperty Name
+    }
+)
+if ($unlistedPublishedEngineFiles.Count -gt 0) {
+    throw "Distribuição bloqueada: arquivos inesperados em Engine\Bin: $($unlistedPublishedEngineFiles -join ', ')."
 }
 
 $issFile = Join-Path $PSScriptRoot "GetItInstaller.iss"

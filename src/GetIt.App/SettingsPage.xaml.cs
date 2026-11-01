@@ -19,6 +19,7 @@ public sealed partial class SettingsPage : Page
     private bool _isLoadingSettings = true;
     private bool _ytDlpBusy;
     private bool _ffmpegBusy;
+    private bool _denoBusy;
 
     public SettingsPage()
     {
@@ -42,6 +43,7 @@ public sealed partial class SettingsPage : Page
         YtDlpAutoUpdateToggle.IsOn = settings.IsYtDlpAutoUpdateEnabled;
         RestoreQueueToggle.IsOn = settings.RestoreQueueOnStartup;
         UpdateFfmpegFolderText(settings.FfmpegBinPath);
+        UpdateDenoFolderText(settings.DenoBinPath);
         AppVersionText.Text = $"GetIt {AppInfo.CurrentVersion.ToString(3)}";
         _isLoadingSettings = false;
         _pageLifetime?.Cancel();
@@ -200,6 +202,93 @@ public sealed partial class SettingsPage : Page
         ResetFfmpegFolderButton.IsEnabled = !busy;
         FfmpegProgressRing.IsActive = busy;
         FfmpegProgressRing.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private async void SelectDenoFolder_Click(object sender, RoutedEventArgs e)
+    {
+        if (_denoBusy) return;
+
+        var picker = new FolderPicker
+        {
+            SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.Downloads
+        };
+        picker.FileTypeFilter.Add("*");
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, App.WindowHandle);
+
+        try
+        {
+            var folder = await picker.PickSingleFolderAsync();
+            if (folder is null) return;
+
+            SetDenoBusy(true);
+            DenoSettingsInfoBar.IsOpen = false;
+            DenoSettingsInfoBar.Severity = InfoBarSeverity.Informational;
+            DenoSettingsInfoBar.Message = "Verificando a versão do Deno…";
+            DenoSettingsInfoBar.IsOpen = true;
+
+            var issues = await DenoEngineValidator.ValidateDirectoryAsync(
+                folder.Path, _pageLifetime?.Token ?? CancellationToken.None);
+            if (issues.Count > 0)
+            {
+                DenoSettingsInfoBar.Severity = InfoBarSeverity.Error;
+                DenoSettingsInfoBar.Message = string.Join(
+                    Environment.NewLine, issues.Select(issue => $"{issue.Component}: {issue.Reason} ({issue.Path})"));
+                return;
+            }
+
+            var fullPath = Path.GetFullPath(folder.Path);
+            SettingsService.UpdateSettings(settings => settings.DenoBinPath = fullPath);
+            UpdateDenoFolderText(fullPath);
+            DenoSettingsInfoBar.Severity = InfoBarSeverity.Success;
+            DenoSettingsInfoBar.Message = "Deno foi validado e configurado para os processos do yt-dlp.";
+        }
+        catch (OperationCanceledException) when (_pageLifetime?.IsCancellationRequested == true) { }
+        catch (Exception exception)
+        {
+            AppLogger.LogException(exception, "Could not configure external Deno");
+            DenoSettingsInfoBar.Severity = InfoBarSeverity.Error;
+            DenoSettingsInfoBar.Message = $"Não foi possível configurar Deno: {exception.Message}";
+        }
+        finally
+        {
+            SetDenoBusy(false);
+        }
+    }
+
+    private void ResetDenoFolder_Click(object sender, RoutedEventArgs e)
+    {
+        if (_denoBusy) return;
+        try
+        {
+            SettingsService.UpdateSettings(settings => settings.DenoBinPath = string.Empty);
+            UpdateDenoFolderText(string.Empty);
+            DenoSettingsInfoBar.Severity = InfoBarSeverity.Informational;
+            DenoSettingsInfoBar.Message = "A configuração personalizada foi removida. O GetIt usará Deno em Engine\\Bin ou o PATH herdado, se disponível.";
+            DenoSettingsInfoBar.IsOpen = true;
+        }
+        catch (Exception exception)
+        {
+            AppLogger.LogException(exception, "Could not reset external Deno configuration");
+            DenoSettingsInfoBar.Severity = InfoBarSeverity.Error;
+            DenoSettingsInfoBar.Message = $"Não foi possível salvar a configuração: {exception.Message}";
+            DenoSettingsInfoBar.IsOpen = true;
+        }
+    }
+
+    private void UpdateDenoFolderText(string configuredPath)
+    {
+        DenoFolderText.Text = string.IsNullOrWhiteSpace(configuredPath)
+            ? "Pasta configurada: automática (Engine\\Bin ou PATH herdado)"
+            : $"Pasta configurada: {configuredPath}";
+    }
+
+    private void SetDenoBusy(bool busy)
+    {
+        _denoBusy = busy;
+        SelectDenoFolderButton.IsEnabled = !busy;
+        ResetDenoFolderButton.IsEnabled = !busy;
+        DenoProgressRing.IsActive = busy;
+        DenoProgressRing.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void OpenThirdPartyLicenses_Click(object sender, RoutedEventArgs e)

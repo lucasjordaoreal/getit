@@ -11,6 +11,8 @@ public class AppSettings
 
     public string FfmpegBinPath { get; set; } = string.Empty;
 
+    public string DenoBinPath { get; set; } = string.Empty;
+
     /// <summary>
     /// User-chosen theme override. "Dark", "Light", or null (follow Windows).
     /// </summary>

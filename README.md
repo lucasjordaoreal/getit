@@ -18,7 +18,7 @@ GetIt é um aplicativo Windows para download de mídia, com foco em confiabilida
 - .NET 10 LTS SDK
 - Visual Studio 2022 ou Rider
 - Windows App SDK / WinUI 3 habilitados para o projeto
-- Engine `yt-dlp.exe` e `deno.exe` em `tools/Engine/Bin` durante o desenvolvimento. FFmpeg e FFprobe são dependências externas: escolha uma pasta com os dois executáveis em **Configurações > Engine de mídia** ou use `GETIT_ENGINE_BIN` para a descoberta automática. O GetIt não baixa nem atualiza FFmpeg.
+- Engine `yt-dlp.exe` em `tools/Engine/Bin` durante o desenvolvimento. FFmpeg/FFprobe são dependências externas configuradas em **Configurações > Engine de mídia**. Deno também é externo: configure sua pasta em **Configurações > Runtime JavaScript para YouTube**; o yt-dlp o usa nos extratores que precisam de JavaScript. O GetIt não baixa esses componentes.
 
 ## Estrutura do repositório
 
@@ -52,8 +52,9 @@ GetIt/
 1. Clone o repositório.
 2. Abra a solução `GetIt.sln` no Visual Studio ou Rider.
 3. Restore as dependências com `dotnet restore GetIt.sln -p:Platform=x64`.
-4. Disponibilize `yt-dlp.exe` e `deno.exe` em `tools/Engine/Bin`.
+4. Disponibilize `yt-dlp.exe` em `tools/Engine/Bin`.
 5. Instale FFmpeg/FFprobe de uma fonte confiável e configure a pasta em **Configurações > Engine de mídia**; a validação verifica versões e os encoders exigidos pelo GetIt.
+6. Para extratores do YouTube que usam JavaScript, instale Deno 2.3.0 ou posterior e configure a pasta em **Configurações > Runtime JavaScript para YouTube**.
 
 ## Compilação
 
@@ -68,7 +69,7 @@ dotnet build GetIt.sln -p:Platform=x64 --configuration Release
 dotnet test GetIt.sln -p:Platform=x64 --configuration Release --logger "console;verbosity=minimal"
 ```
 
-Os testes de configurações e histórico usam uma pasta temporária isolada e não alteram `%APPDATA%\GetIt`. Os testes de integração reais com FFmpeg são ignorados por padrão; defina `GETIT_FFMPEG_TEST_ENGINE` somente quando quiser executá-los com uma engine local.
+Os testes de configurações e histórico usam uma pasta temporária isolada e não alteram `%APPDATA%\GetIt`. Os testes de integração de FFmpeg e Deno são ignorados por padrão. Para executá-los com engines locais, defina `GETIT_FFMPEG_TEST_ENGINE` e `GETIT_DENO_TEST_ENGINE`, respectivamente.
 
 ## Publicação e distribuição
 
@@ -79,16 +80,20 @@ A solução está preparada para builds reproducíveis com suporte a publicaçã
 - testes
 - validação de formatação estática
 
-Para empacotamento e distribuição, `deploy/installer/` contém os scripts do instalador. Os binários da engine não são incluídos no repositório, portanto um clone limpo precisa receber `yt-dlp.exe` e `deno.exe` separadamente. A publicação inclui apenas esses dois executáveis: FFmpeg, FFprobe, FFplay e Node.js são excluídos. O script valida a ausência dos executáveis excluídos e exige os avisos/licenças de todos os componentes incluídos.
+Para empacotamento e distribuição, `deploy/installer/` contém os scripts do instalador. Os binários da engine não são incluídos no repositório, portanto um clone limpo precisa receber `yt-dlp.exe` separadamente. A publicação inclui somente o `yt-dlp.exe` empacotado; FFmpeg, FFprobe, FFplay, Node.js e Deno são externos e excluídos. O script valida a ausência desses executáveis e exige os avisos/licenças dos componentes que de fato distribui.
 
-Os avisos e textos de licença dos componentes distribuídos ficam em `licenses/` e são copiados seletivamente para `Licenses/` na publicação; a página **Configurações > Sobre** abre essa pasta. A compilação do instalador permanece bloqueada até que os notices completos do Deno sejam obtidos e verificados. O pacote de fontes da Gyan/BtbN não integra esse gate porque esses binários não serão distribuídos. Consulte [`licenses/THIRD_PARTY_NOTICES.md`](licenses/THIRD_PARTY_NOTICES.md) e [`licenses/THIRD_PARTY_SOURCES.md`](licenses/THIRD_PARTY_SOURCES.md).
+Os avisos e textos de licença ficam em `licenses/` e são copiados para `Licenses/` na publicação; a pasta também pode conter textos de licença arquivados de runtimes externos, o que não significa que seus executáveis estejam no pacote. A página **Configurações > Sobre** abre essa pasta. FFmpeg/FFprobe e Deno não são redistribuídos pelo instalador; os usuários devem obtê-los de fontes confiáveis e configurar suas pastas no aplicativo. O instalador remove cópias antigas desses runtimes durante a atualização in-place. Consulte [`licenses/THIRD_PARTY_NOTICES.md`](licenses/THIRD_PARTY_NOTICES.md) e [`licenses/THIRD_PARTY_SOURCES.md`](licenses/THIRD_PARTY_SOURCES.md).
+
+### Atualização de 0.1.1 para 0.1.2
+
+O instalador preserva as configurações e o histórico em `%APPDATA%\GetIt`, mas remove de `{app}\Engine\Bin` as cópias antigas de FFmpeg, FFprobe, FFplay, Deno e Node.js. Se a configuração salva do FFmpeg apontava para essa pasta da instalação anterior, selecione uma pasta externa com FFmpeg/FFprobe em **Configurações > Engine de mídia**. Para extratores do YouTube que precisam de JavaScript, configure também Deno 2.3.0 ou posterior em **Configurações > Runtime JavaScript para YouTube**.
 
 ## Arquitetura e manutenção
 
 - `GetIt.App`: interface, interação do usuário, telas e fluxo principal
 - `GetIt.Core`: lógica compartilhada, configurações e serviços de infraestrutura
 - `GetIt.Tests`: testes automatizados para os fluxos críticos
-- `tools/Engine/Bin`: `yt-dlp.exe` e `deno.exe` locais, ignorados pelo Git e copiados para a publicação; FFmpeg/FFprobe são externos
+- `tools/Engine/Bin`: `yt-dlp.exe` local, ignorado pelo Git e copiado para a publicação; FFmpeg/FFprobe e Deno são externos
 - `docs`: documentação operativa e de estrutura do produto
 
 ## Observações importantes

@@ -16,8 +16,28 @@ public sealed class FfmpegIntegrationFactAttribute : FactAttribute
     }
 }
 
+public sealed class DenoIntegrationFactAttribute : FactAttribute
+{
+    public DenoIntegrationFactAttribute()
+    {
+        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("GETIT_DENO_TEST_ENGINE")))
+            Skip = "Set GETIT_DENO_TEST_ENGINE to run the local Deno integration check.";
+    }
+}
+
 public class FfmpegVideoConverterTests(ITestOutputHelper output)
 {
+    [DenoIntegrationFact]
+    public async Task DenoEngineValidator_AcceptsTheConfiguredExternalRuntime()
+    {
+        var engineDirectory = Environment.GetEnvironmentVariable("GETIT_DENO_TEST_ENGINE")!;
+
+        var issues = await DenoEngineValidator.ValidateDirectoryAsync(engineDirectory);
+
+        Assert.Empty(issues);
+        output.WriteLine($"Validated external Deno from {engineDirectory}.");
+    }
+
     [FfmpegIntegrationFact]
     public async Task FfmpegEngineValidator_AcceptsTheConfiguredLocalEngine()
     {

@@ -37,6 +37,7 @@ public class SettingsServiceTests
             Assert.True(settings.IsAppAutoUpdateEnabled);
             Assert.True(settings.IsYtDlpAutoUpdateEnabled);
             Assert.Equal(string.Empty, settings.FfmpegBinPath);
+            Assert.Equal(string.Empty, settings.DenoBinPath);
         }
         finally
         {
@@ -84,14 +85,20 @@ public class SettingsServiceTests
     public void FfmpegBinPath_ShouldBePersistedWithoutChangingOtherSettings()
     {
         var path = Path.Combine(Path.GetTempPath(), $"GetIt-FFmpeg-{Guid.NewGuid():N}");
+        var denoPath = Path.Combine(Path.GetTempPath(), $"GetIt-Deno-{Guid.NewGuid():N}");
         var original = File.Exists(SettingsPath) ? File.ReadAllText(SettingsPath) : null;
 
         try
         {
-            SettingsService.UpdateSettings(settings => settings.FfmpegBinPath = path);
+            SettingsService.UpdateSettings(settings =>
+            {
+                settings.FfmpegBinPath = path;
+                settings.DenoBinPath = denoPath;
+            });
 
             var settings = SettingsService.LoadSettings();
             Assert.Equal(path, settings.FfmpegBinPath);
+            Assert.Equal(denoPath, settings.DenoBinPath);
             Assert.True(settings.IsAppAutoUpdateEnabled);
             Assert.True(settings.IsYtDlpAutoUpdateEnabled);
         }

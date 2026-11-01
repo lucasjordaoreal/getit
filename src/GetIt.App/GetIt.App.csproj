@@ -79,14 +79,6 @@
       <Link>Engine\Bin\yt-dlp.exe</Link>
     </None>
   </ItemGroup>
-  <ItemGroup Condition="Exists('..\..\tools\Engine\Bin\deno.exe')">
-    <None Include="..\..\tools\Engine\Bin\deno.exe">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-      <Link>Engine\Bin\deno.exe</Link>
-    </None>
-  </ItemGroup>
-
   <ItemGroup>
     <Manifest Include="$(ApplicationManifest)" />
   </ItemGroup>
@@ -128,8 +120,6 @@
     <ThirdPartyLicenseFile Include="..\..\licenses\THIRD_PARTY_SOURCES.md" />
     <ThirdPartyLicenseFile Include="..\..\licenses\texts\yt-dlp-UNLICENSE.txt" />
     <ThirdPartyLicenseFile Include="..\..\licenses\texts\yt-dlp-2026.08.19-THIRD-PARTY-LICENSES.txt" />
-    <ThirdPartyLicenseFile Include="..\..\licenses\texts\Deno-MIT-LICENSE.md" />
-    <ThirdPartyLicenseFile Include="..\..\licenses\texts\Deno-THIRD-PARTY-NOTICES.txt" Condition="Exists('..\..\licenses\texts\Deno-THIRD-PARTY-NOTICES.txt')" />
     <ThirdPartyLicenseFile Include="..\..\licenses\texts\dotnet-runtime-LICENSE.TXT" />
     <ThirdPartyLicenseFile Include="..\..\licenses\texts\dotnet-runtime-THIRD-PARTY-NOTICES.TXT" />
     <ThirdPartyLicenseFile Include="..\..\licenses\texts\CommunityToolkit-Mvvm-8.4.2-LICENSE.md" />
