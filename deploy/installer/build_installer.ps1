@@ -29,6 +29,78 @@ if ($missingEngineFiles.Count -gt 0) {
     throw "Engine incompleta em '$engineBin'. Arquivos ausentes ou vazios: $($missingEngineFiles -join ', ')."
 }
 
+$licenseRoot = Join-Path $repoRoot "licenses"
+$requiredLicenseFiles = @(
+    "THIRD_PARTY_NOTICES.md",
+    "THIRD_PARTY_SOURCES.md",
+    "texts\FFmpeg-COPYING.GPLv2.txt",
+    "texts\FFmpeg-COPYING.GPLv3.txt",
+    "texts\FFmpeg-COPYING.LGPLv2.1.txt",
+    "texts\FFmpeg-COPYING.LGPLv3.txt",
+    "texts\yt-dlp-UNLICENSE.txt",
+    "texts\Deno-MIT-LICENSE.md",
+    "texts\Node-LICENSE",
+    "texts\dotnet-runtime-LICENSE.TXT",
+    "texts\dotnet-runtime-THIRD-PARTY-NOTICES.TXT",
+    "texts\CommunityToolkit-Mvvm-8.4.2-LICENSE.md",
+    "texts\CommunityToolkit-Mvvm-8.4.2-ThirdPartyNotices.txt",
+    "texts\System-Numerics-Tensors-9.0.0-LICENSE.TXT",
+    "texts\System-Numerics-Tensors-9.0.0-THIRD-PARTY-NOTICES.TXT",
+    "texts\Microsoft-WebView2-1.0.3719.77-LICENSE.txt",
+    "texts\Microsoft-WebView2-1.0.3719.77-NOTICE.txt",
+    "texts\Microsoft-WindowsAppSDK-2.1.3-license.txt",
+    "texts\Microsoft-WindowsAppSDK-2.1.3-NOTICE.txt",
+    "texts\Microsoft-WindowsAppSDK-AI-2.1.10-license.txt",
+    "texts\Microsoft-WindowsAppSDK-Base-2.0.4-license.txt",
+    "texts\Microsoft-WindowsAppSDK-Base-2.0.4-NOTICE.txt",
+    "texts\Microsoft-WindowsAppSDK-DWrite-2.1.0-license.txt",
+    "texts\Microsoft-WindowsAppSDK-Foundation-2.0.21-license.txt",
+    "texts\Microsoft-WindowsAppSDK-InteractiveExperiences-2.0.13-license.txt",
+    "texts\Microsoft-WindowsAppSDK-ML-2.1.1-license.txt",
+    "texts\Microsoft-WindowsAppSDK-ML-2.1.1-ThirdPartyNotices.txt",
+    "texts\Microsoft-WindowsAppSDK-Runtime-2.1.3-license.txt",
+    "texts\Microsoft-WindowsAppSDK-Runtime-2.1.3-NOTICE.txt",
+    "texts\Microsoft-WindowsAppSDK-Widgets-2.0.5-license.txt",
+    "texts\Microsoft-WindowsAppSDK-WinUI-2.1.0-license.txt",
+    "texts\Microsoft-WindowsAppSDK-WinUI-2.1.0-NOTICE.txt"
+)
+$missingLicenseFiles = @(
+    foreach ($relativePath in $requiredLicenseFiles) {
+        if (!(Test-Path -LiteralPath (Join-Path $licenseRoot $relativePath) -PathType Leaf)) {
+            $relativePath
+        }
+    }
+)
+if ($missingLicenseFiles.Count -gt 0) {
+    throw "Materiais de licenciamento ausentes em '$licenseRoot': $($missingLicenseFiles -join ', ')."
+}
+
+$sourceBundleDir = Join-Path $repoRoot "bin\ThirdPartySources"
+$sourceBundlePath = Join-Path $sourceBundleDir "GetIt-Third-Party-Sources-v$version.zip"
+$sourceHashPath = "$sourceBundlePath.sha256"
+$reviewPath = Join-Path $sourceBundleDir "REDISTRIBUTION-REVIEW.txt"
+foreach ($requiredPath in @($sourceBundlePath, $sourceHashPath, $reviewPath)) {
+    if (!(Test-Path -LiteralPath $requiredPath -PathType Leaf)) {
+        throw "Instalador bloqueado: falta '$requiredPath'. Prepare o pacote de fontes correspondente, seu SHA-256 e a revisão documentada antes de distribuir."
+    }
+}
+
+$sourceHash = (Get-Content -LiteralPath $sourceHashPath -Raw).Trim()
+if ($sourceHash -notmatch '^[A-Fa-f0-9]{64}$') {
+    throw "O arquivo de hash '$sourceHashPath' deve conter somente um SHA-256 hexadecimal de 64 caracteres."
+}
+if ((Get-FileHash -LiteralPath $sourceBundlePath -Algorithm SHA256).Hash -ne $sourceHash.ToUpperInvariant()) {
+    throw "O SHA-256 do pacote de fontes não corresponde ao arquivo '$sourceHashPath'."
+}
+
+$reviewContents = Get-Content -LiteralPath $reviewPath -Raw
+$reviewIsInvalid = ($reviewContents -notmatch "(?m)^version=$([regex]::Escape($version))\s*$") `
+    -or ($reviewContents -notmatch "(?m)^source-bundle-sha256=$([regex]::Escape($sourceHash))\s*$") `
+    -or ($reviewContents -notmatch '(?m)^reviewed-by=(?!\s*$).+')
+if ($reviewIsInvalid) {
+    throw "O arquivo '$reviewPath' deve registrar a versão, o hash do pacote de fontes e um revisor identificável."
+}
+
 $isccCandidates = @(
     "C:\Program Files (x86)\Inno Setup 6\ISCC.exe",
     "C:\Program Files\Inno Setup 6\ISCC.exe",
@@ -58,6 +130,19 @@ dotnet publish "src\GetIt.App\GetIt.App.csproj" -c Release -r win-x64 --self-con
 
 if ($LASTEXITCODE -ne 0) {
     throw "Falha ao publicar o projeto."
+}
+
+$publishDir = Join-Path $repoRoot "src\GetIt.App\bin\Release\net10.0-windows10.0.26100.0\win-x64\publish"
+$missingPublishedLicenseFiles = @(
+    foreach ($relativePath in $requiredLicenseFiles) {
+        $publishedPath = Join-Path $publishDir (Join-Path "Licenses" $relativePath)
+        if (!(Test-Path -LiteralPath $publishedPath -PathType Leaf)) {
+            $publishedPath
+        }
+    }
+)
+if ($missingPublishedLicenseFiles.Count -gt 0) {
+    throw "A publicação não contém todos os documentos de terceiros: $($missingPublishedLicenseFiles -join ', ')."
 }
 
 $issFile = Join-Path $PSScriptRoot "GetItInstaller.iss"

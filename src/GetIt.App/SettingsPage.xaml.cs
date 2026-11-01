@@ -2,6 +2,9 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using GetIt_App.Services;
 using System;
+using System.ComponentModel;
+using System.Diagnostics;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -108,6 +111,36 @@ public sealed partial class SettingsPage : Page
 
     private void PersistenceStatusInfoBar_Closed(InfoBar sender, InfoBarClosedEventArgs args) =>
         SettingsService.AcknowledgeLoadWarning();
+
+    private void OpenThirdPartyLicenses_Click(object sender, RoutedEventArgs e)
+    {
+        var licenseDirectory = Path.Combine(AppContext.BaseDirectory, "Licenses");
+        if (!Directory.Exists(licenseDirectory))
+        {
+            LicenseOpenStatusInfoBar.Severity = InfoBarSeverity.Error;
+            LicenseOpenStatusInfoBar.Message = "A pasta de licenças de terceiros não foi encontrada.";
+            LicenseOpenStatusInfoBar.IsOpen = true;
+            return;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "explorer.exe",
+                Arguments = $"\"{licenseDirectory}\"",
+                UseShellExecute = true
+            });
+            LicenseOpenStatusInfoBar.IsOpen = false;
+        }
+        catch (Exception exception) when (exception is Win32Exception or InvalidOperationException)
+        {
+            AppLogger.LogException(exception, "Could not open third-party license documents");
+            LicenseOpenStatusInfoBar.Severity = InfoBarSeverity.Error;
+            LicenseOpenStatusInfoBar.Message = $"Não foi possível abrir os documentos de licença: {exception.Message}";
+            LicenseOpenStatusInfoBar.IsOpen = true;
+        }
+    }
 
     private async void UpdateYtDlp_Click(object sender, RoutedEventArgs e)
     {

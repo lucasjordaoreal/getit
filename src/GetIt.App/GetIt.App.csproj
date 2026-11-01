@@ -115,4 +115,14 @@
     </PropertyGroup>
     <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\PostPublishCleanup.ps1&quot; -PublishDir &quot;$(TargetPubDir)&quot;" />
   </Target>
+
+  <Target Name="CopyThirdPartyLicenseDocuments" AfterTargets="Build">
+    <ItemGroup>
+      <ThirdPartyLicenseFile Include="..\..\licenses\**\*" />
+    </ItemGroup>
+    <Copy
+      SourceFiles="@(ThirdPartyLicenseFile)"
+      DestinationFiles="@(ThirdPartyLicenseFile->'$(OutDir)Licenses\%(RecursiveDir)%(Filename)%(Extension)')"
+      SkipUnchangedFiles="true" />
+  </Target>
 </Project>

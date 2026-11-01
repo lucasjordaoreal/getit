@@ -113,6 +113,10 @@
                         <HyperlinkButton Content="GitHub do GetIt"
                                          NavigateUri="https://github.com/lucasjordaoreal/getit"
                                          HorizontalAlignment="Left" />
+                        <Button Content="Licenças de terceiros"
+                                Click="OpenThirdPartyLicenses_Click"
+                                HorizontalAlignment="Left" />
+                        <InfoBar x:Name="LicenseOpenStatusInfoBar" IsOpen="False" IsClosable="True" />
                     </StackPanel>
                 </Border>
             </Grid>

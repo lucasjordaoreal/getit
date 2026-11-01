@@ -117,3 +117,13 @@ if (Test-Path $depsPath) {
     Set-Content -Path $depsPath -Value $content -NoNewline
     Write-Host "Updated GetIt.deps.json with Libs/ probing paths."
 }
+
+$licenseSource = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\licenses'))
+if (!(Test-Path -LiteralPath $licenseSource -PathType Container)) {
+    throw "Third-party license documents not found: $licenseSource"
+}
+
+$licenseTarget = Join-Path $pubDir 'Licenses'
+New-Item -ItemType Directory -Path $licenseTarget -Force | Out-Null
+Get-ChildItem -LiteralPath $licenseSource -Force | Copy-Item -Destination $licenseTarget -Recurse -Force
+Write-Host "Copied third-party license documents into Licenses/."

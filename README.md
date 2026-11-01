@@ -80,6 +80,8 @@ A solução está preparada para builds reproducíveis com suporte a publicaçã
 
 Para empacotamento e distribuição, `deploy/installer/` contém os scripts do instalador. Os binários da engine não são incluídos no repositório, portanto um clone limpo precisa recebê-los separadamente antes do empacotamento.
 
+Os avisos e textos de licença dos componentes distribuídos ficam em `licenses/` e são copiados para `Licenses/` na publicação; a página **Configurações > Sobre** abre essa pasta. O script do instalador exige o pacote de fontes correspondente, seu SHA-256 e um registro de revisão em `bin/ThirdPartySources/`. Consulte [`licenses/THIRD_PARTY_NOTICES.md`](licenses/THIRD_PARTY_NOTICES.md) e [`licenses/THIRD_PARTY_SOURCES.md`](licenses/THIRD_PARTY_SOURCES.md); a build da engine só pode ser distribuída quando as pendências ali identificadas forem resolvidas.
+
 ## Arquitetura e manutenção
 
 - `GetIt.App`: interface, interação do usuário, telas e fluxo principal
