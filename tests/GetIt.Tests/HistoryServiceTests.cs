@@ -4,6 +4,7 @@ using Xunit;
 
 namespace GetIt.Tests;
 
+[Collection(AppDataTestCollection.Name)]
 public class HistoryServiceTests
 {
     private static string HistoryPath => Path.Combine(AppInfo.AppDataDirectory, "history.json");

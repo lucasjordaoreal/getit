@@ -4,6 +4,7 @@ using Xunit;
 
 namespace GetIt.Tests;
 
+[Collection(AppDataTestCollection.Name)]
 public class SettingsServiceTests
 {
     private static string SettingsPath => Path.Combine(AppInfo.AppDataDirectory, "settings.json");

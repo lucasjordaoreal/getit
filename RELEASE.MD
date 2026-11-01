@@ -1,3 +1,13 @@
+# GetIt v0.1.2
+
+### ✨ Novidades e melhorias:
+- **Presets de download:** perfis MP4, MP3 a 320 kbps e FLAC para novos itens, com personalização individual e opções avançadas MOV e WAV.
+- **Links em lote:** pré-visualização de até 50 linhas, com identificação de URLs inválidas e repetidas antes de confirmar a inclusão na fila.
+- **Playlists:** prévia de até 50 vídeos com miniaturas e seleção individual; a inclusão não inicia downloads automaticamente.
+- **Fila e histórico:** restauração opcional da fila sem iniciar downloads, pesquisa e filtros do histórico, e recuperação local de dados JSON.
+- **Interface:** janela redimensionável e maximização nativa, layout adaptável, ajustes de acessibilidade e refinamentos visuais.
+- **Reprodução:** o histórico indica quando um item está tocando, com animação horizontal suave para o rótulo.
+
 # 🚀 GetIt - v0.1.1
 
 ### ✨ Novidades e melhorias:

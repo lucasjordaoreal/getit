@@ -13,15 +13,22 @@ if (-not $version) {
 }
 $version = $version.Trim()
 
-Write-Host "=== Compilando e Publicando GetIt v$version (Release x64) ===" -ForegroundColor Cyan
-dotnet publish "src\GetIt.App\GetIt.App.csproj" -c Release -r win-x64 --self-contained true -p:Platform=x64 -p:PublishSingleFile=false -o "src\GetIt.App\bin\Release\net10.0-windows10.0.26100.0\win-x64\publish"
-
-if ($LASTEXITCODE -ne 0) {
-    Write-Error "Falha ao publicar o projeto."
-    exit 1
+$engineBin = Join-Path $repoRoot "tools\Engine\Bin"
+$requiredEngineFiles = @("yt-dlp.exe", "ffmpeg.exe", "ffprobe.exe")
+$missingEngineFiles = @(
+    foreach ($fileName in $requiredEngineFiles) {
+        $filePath = Join-Path $engineBin $fileName
+        if (!(Test-Path -LiteralPath $filePath -PathType Leaf)) {
+            $fileName
+        } elseif ((Get-Item -LiteralPath $filePath).Length -eq 0) {
+            $fileName
+        }
+    }
+)
+if ($missingEngineFiles.Count -gt 0) {
+    throw "Engine incompleta em '$engineBin'. Arquivos ausentes ou vazios: $($missingEngineFiles -join ', ')."
 }
 
-# 2. Localizar o compilador do Inno Setup (ISCC.exe)
 $isccCandidates = @(
     "C:\Program Files (x86)\Inno Setup 6\ISCC.exe",
     "C:\Program Files\Inno Setup 6\ISCC.exe",
@@ -31,7 +38,7 @@ $isccCandidates = @(
 
 $isccPath = $null
 foreach ($path in $isccCandidates) {
-    if (Test-Path $path) {
+    if (Test-Path -LiteralPath $path -PathType Leaf) {
         $isccPath = $path
         break
     }
@@ -42,22 +49,29 @@ if (-not $isccPath) {
     if ($cmd) { $isccPath = $cmd.Source }
 }
 
-$issFile = Join-Path $PSScriptRoot "GetItInstaller.iss"
-
-if ($isccPath) {
-    Write-Host "=== Gerando o Instalador via Inno Setup ($isccPath) ===" -ForegroundColor Green
-    & $isccPath "/DMyAppVersion=$version" $issFile
-    if ($LASTEXITCODE -eq 0) {
-        $outDir = Join-Path $repoRoot "bin\Installer"
-        Write-Host "`n[SUCESSO] Instalador gerado em:" -ForegroundColor Green
-        Write-Host "  $outDir\GetIt-Setup-v$version.exe`n" -ForegroundColor Yellow
-    } else {
-        Write-Error "Erro ao compilar o instalador com o Inno Setup."
-    }
-} else {
-    Write-Host "`n[AVISO] Inno Setup 6 não foi encontrado instalado no sistema." -ForegroundColor Yellow
-    Write-Host "Para gerar o executável do instalador (.exe):" -ForegroundColor Cyan
-    Write-Host "1. Baixe o Inno Setup gratuitamente em: https://jrsoftware.org/isdl.php" -ForegroundColor Gray
-    Write-Host "2. Instale e execute novamente este script:" -ForegroundColor Gray
-    Write-Host "   powershell deploy\installer\build_installer.ps1`n" -ForegroundColor Yellow
+if (-not $isccPath) {
+    throw "Inno Setup não foi encontrado. Instale o Inno Setup 6 para gerar o instalador."
 }
+
+Write-Host "=== Compilando e Publicando GetIt v$version (Release x64) ===" -ForegroundColor Cyan
+dotnet publish "src\GetIt.App\GetIt.App.csproj" -c Release -r win-x64 --self-contained true -p:Platform=x64 -p:PublishSingleFile=false -o "src\GetIt.App\bin\Release\net10.0-windows10.0.26100.0\win-x64\publish"
+
+if ($LASTEXITCODE -ne 0) {
+    throw "Falha ao publicar o projeto."
+}
+
+$issFile = Join-Path $PSScriptRoot "GetItInstaller.iss"
+$outDir = Join-Path $repoRoot "bin\Installer"
+$setupPath = Join-Path $outDir "GetIt-Setup-v$version.exe"
+
+Write-Host "=== Gerando o Instalador via Inno Setup ($isccPath) ===" -ForegroundColor Green
+& $isccPath "/DMyAppVersion=$version" $issFile
+if ($LASTEXITCODE -ne 0) {
+    throw "Erro ao compilar o instalador com o Inno Setup."
+}
+if (!(Test-Path -LiteralPath $setupPath -PathType Leaf) -or (Get-Item -LiteralPath $setupPath).Length -eq 0) {
+    throw "O Inno Setup terminou sem gerar o instalador esperado em '$setupPath'."
+}
+
+Write-Host "`n[SUCESSO] Instalador gerado em:" -ForegroundColor Green
+Write-Host "  $setupPath`n" -ForegroundColor Yellow

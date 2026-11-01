@@ -8,4 +8,8 @@
     <UseWPF>false</UseWPF>
     <UseWindowsForms>false</UseWindowsForms>
   </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="GetIt.Tests" />
+  </ItemGroup>
 </Project>

@@ -18,7 +18,7 @@ GetIt é um aplicativo Windows para download de mídia, com foco em confiabilida
 - .NET 10 LTS SDK
 - Visual Studio 2022 ou Rider
 - Windows App SDK / WinUI 3 habilitados para o projeto
-- Engine yt-dlp, FFmpeg e FFprobe em `Engine/Bin` ou em um diretório configurado por `GETIT_ENGINE_BIN`. Se algum componente estiver ausente ou indisponível, o GetIt ainda abre e informa como corrigir a engine.
+- Engine yt-dlp, FFmpeg e FFprobe em `tools/Engine/Bin` durante o desenvolvimento (copiados para `Engine/Bin` na publicação) ou em um diretório configurado por `GETIT_ENGINE_BIN`. Os binários não são versionados; o script do instalador interrompe a geração se os componentes obrigatórios estiverem ausentes.
 
 ## Estrutura do repositório
 
@@ -35,8 +35,10 @@ GetIt/
 │   └── ...
 ├── tests/
 │   └── GetIt.Tests/
-├── Engine/
-├── installer/
+├── tools/
+│   └── Engine/Bin/          # Binários locais, ignorados pelo Git
+├── deploy/
+│   └── installer/
 ├── .gitignore
 ├── Directory.Build.props
 ├── GetIt.sln
@@ -50,7 +52,7 @@ GetIt/
 1. Clone o repositório.
 2. Abra a solução `GetIt.sln` no Visual Studio ou Rider.
 3. Restore as dependências com `dotnet restore GetIt.sln -p:Platform=x64`.
-4. Se necessário, valide a engine externa em `Engine/Bin`.
+4. Se necessário, valide a engine externa em `tools/Engine/Bin`.
 
 ## Compilação
 
@@ -65,6 +67,8 @@ dotnet build GetIt.sln -p:Platform=x64 --configuration Release
 dotnet test GetIt.sln -p:Platform=x64 --configuration Release --logger "console;verbosity=minimal"
 ```
 
+Os testes de configurações e histórico usam uma pasta temporária isolada e não alteram `%APPDATA%\GetIt`. Os testes de integração reais com FFmpeg são ignorados por padrão; defina `GETIT_FFMPEG_TEST_ENGINE` somente quando quiser executá-los com uma engine local.
+
 ## Publicação e distribuição
 
 A solução está preparada para builds reproducíveis com suporte a publicação Windows e geração de artefatos para distribuição. O pipeline de CI em `.github/workflows/ci.yml` realiza:
@@ -74,14 +78,14 @@ A solução está preparada para builds reproducíveis com suporte a publicaçã
 - testes
 - validação de formatação estática
 
-Para empacotamento e distribuição, a pasta `installer/` contém scripts de preparação do instalador e artefatos complementares.
+Para empacotamento e distribuição, `deploy/installer/` contém os scripts do instalador. Os binários da engine não são incluídos no repositório, portanto um clone limpo precisa recebê-los separadamente antes do empacotamento.
 
 ## Arquitetura e manutenção
 
 - `GetIt.App`: interface, interação do usuário, telas e fluxo principal
 - `GetIt.Core`: lógica compartilhada, configurações e serviços de infraestrutura
 - `GetIt.Tests`: testes automatizados para os fluxos críticos
-- `Engine`: binários e dependências externas do runtime de download
+- `tools/Engine/Bin`: binários locais e ignorados pelo Git, copiados para o diretório `Engine/Bin` na publicação
 - `docs`: documentação operativa e de estrutura do produto
 
 ## Observações importantes
