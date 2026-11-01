@@ -95,7 +95,6 @@ public sealed partial class MainWindow : Window
             return;
         }
 #endif
-        App.OnMainWindowReady();
     }
 
     private void NavView_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
@@ -125,5 +124,10 @@ public sealed partial class MainWindow : Window
         {
             RootFrame.Navigate(pageType, null, args.RecommendedNavigationTransitionInfo);
         }
+    }
+
+    public void NavigateToSettings()
+    {
+        NavView.SelectedItem = NavView.SettingsItem;
     }
 }

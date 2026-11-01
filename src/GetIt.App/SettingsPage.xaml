@@ -60,7 +60,7 @@
                         <StackPanel Spacing="10">
                             <TextBlock Text="Engine de mídia" FontSize="17" FontWeight="SemiBold"
                                        Foreground="{ThemeResource AppTextBrush}" />
-                            <TextBlock Text="O GetIt não inclui FFmpeg. Escolha uma pasta que contenha ffmpeg.exe e ffprobe.exe; são necessários para downloads e conversões de mídia."
+                            <TextBlock Text="O GetIt pode configurar FFmpeg/FFprobe automaticamente após seu consentimento. Também é possível selecionar uma instalação existente."
                                        FontSize="13" Foreground="{ThemeResource AppSecondaryTextBrush}"
                                        TextWrapping="Wrap" />
                             <TextBlock x:Name="FfmpegFolderText" FontSize="13" Foreground="{ThemeResource AppTextBrush}"
@@ -73,10 +73,10 @@
                                 <ProgressRing x:Name="FfmpegProgressRing" Width="20" Height="20"
                                               IsActive="False" Visibility="Collapsed" />
                             </StackPanel>
-                            <HyperlinkButton Content="Obter FFmpeg para Windows"
-                                             NavigateUri="https://ffmpeg.org/download.html#build-windows"
+                            <HyperlinkButton Content="Informações do release automático BtbN"
+                                             NavigateUri="https://github.com/BtbN/FFmpeg-Builds/releases/tag/autobuild-2026-10-31-12-59"
                                              HorizontalAlignment="Left" />
-                            <TextBlock Text="Use uma distribuição confiável e verifique a licença e as condições fornecidas pelo responsável por essa build. O GetIt não baixa nem atualiza FFmpeg."
+                            <TextBlock Text="A configuração automática usa uma build GPLv3 e valida o hash do pacote antes de extrair. O download é direto do fornecedor; isso não é uma declaração de isenção jurídica."
                                        FontSize="12" Foreground="{ThemeResource AppSecondaryTextBrush}"
                                        TextWrapping="Wrap" />
                             <InfoBar x:Name="FfmpegSettingsInfoBar" IsOpen="False" IsClosable="True" />
@@ -85,7 +85,7 @@
                         <StackPanel Spacing="10">
                             <TextBlock Text="Runtime JavaScript para YouTube" FontSize="17" FontWeight="SemiBold"
                                        Foreground="{ThemeResource AppTextBrush}" />
-                            <TextBlock Text="O yt-dlp usa Deno para os componentes JavaScript de alguns extratores, incluindo YouTube. Instale Deno 2.3.0 ou posterior e selecione a pasta que contém deno.exe. O GetIt não inclui nem baixa esse runtime."
+                            <TextBlock Text="O yt-dlp usa Deno para componentes JavaScript de alguns extratores, incluindo YouTube. O GetIt pode configurar Deno automaticamente após seu consentimento ou você pode selecionar uma instalação existente."
                                        FontSize="13" Foreground="{ThemeResource AppSecondaryTextBrush}"
                                        TextWrapping="Wrap" />
                             <TextBlock x:Name="DenoFolderText" FontSize="13" Foreground="{ThemeResource AppTextBrush}"
@@ -98,9 +98,12 @@
                                 <ProgressRing x:Name="DenoProgressRing" Width="20" Height="20"
                                               IsActive="False" Visibility="Collapsed" />
                             </StackPanel>
-                            <HyperlinkButton Content="Obter Deno"
-                                             NavigateUri="https://docs.deno.com/runtime/getting_started/installation/"
+                            <HyperlinkButton Content="Release oficial Deno 2.7.1"
+                                             NavigateUri="https://github.com/denoland/deno/releases/tag/v2.7.1"
                                              HorizontalAlignment="Left" />
+                            <TextBlock Text="O yt-dlp oficial PyInstaller já inclui os scripts EJS. O GetIt não baixa scripts separados."
+                                       FontSize="12" Foreground="{ThemeResource AppSecondaryTextBrush}"
+                                       TextWrapping="Wrap" />
                             <InfoBar x:Name="DenoSettingsInfoBar" IsOpen="False" IsClosable="True" />
                         </StackPanel>
                         <Border Height="1" Background="{ThemeResource AppBorderBrush}" />

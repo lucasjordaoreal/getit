@@ -47,6 +47,7 @@ $requiredLicenseFiles = @(
     "THIRD_PARTY_SOURCES.md",
     "texts\yt-dlp-UNLICENSE.txt",
     "texts\yt-dlp-2026.08.19-THIRD-PARTY-LICENSES.txt",
+    "texts\Deno-MIT-LICENSE.md",
     "texts\dotnet-runtime-LICENSE.TXT",
     "texts\dotnet-runtime-THIRD-PARTY-NOTICES.TXT",
     "texts\CommunityToolkit-Mvvm-8.4.2-LICENSE.md",
@@ -108,12 +109,16 @@ if (-not $isccPath) {
 
 $publishDir = Join-Path $repoRoot "src\GetIt.App\bin\Release\net10.0-windows10.0.26100.0\win-x64\publish"
 $publishedEngineDir = Join-Path $publishDir "Engine\Bin"
+$publishedLicenseDir = Join-Path $publishDir "Licenses"
 $staleEngineFiles = @($excludedEngineFiles + "help.txt")
 foreach ($fileName in $staleEngineFiles) {
     $stalePath = Join-Path $publishedEngineDir $fileName
     if (Test-Path -LiteralPath $stalePath -PathType Leaf) {
         Remove-Item -LiteralPath $stalePath -Force
     }
+}
+if (Test-Path -LiteralPath $publishedLicenseDir -PathType Container) {
+    Remove-Item -LiteralPath $publishedLicenseDir -Recurse -Force
 }
 
 Write-Host "=== Compilando e Publicando GetIt v$version (Release x64) ===" -ForegroundColor Cyan

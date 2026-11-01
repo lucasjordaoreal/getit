@@ -120,6 +120,7 @@
     <ThirdPartyLicenseFile Include="..\..\licenses\THIRD_PARTY_SOURCES.md" />
     <ThirdPartyLicenseFile Include="..\..\licenses\texts\yt-dlp-UNLICENSE.txt" />
     <ThirdPartyLicenseFile Include="..\..\licenses\texts\yt-dlp-2026.08.19-THIRD-PARTY-LICENSES.txt" />
+    <ThirdPartyLicenseFile Include="..\..\licenses\texts\Deno-MIT-LICENSE.md" />
     <ThirdPartyLicenseFile Include="..\..\licenses\texts\dotnet-runtime-LICENSE.TXT" />
     <ThirdPartyLicenseFile Include="..\..\licenses\texts\dotnet-runtime-THIRD-PARTY-NOTICES.TXT" />
     <ThirdPartyLicenseFile Include="..\..\licenses\texts\CommunityToolkit-Mvvm-8.4.2-LICENSE.md" />

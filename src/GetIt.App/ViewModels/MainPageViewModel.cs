@@ -178,8 +178,15 @@ public partial class MainPageViewModel : ObservableObject
         catch (Exception exception)
         {
             AppLogger.LogException(exception, "Could not check the download engine at startup");
-            EngineStatusMessage = "Não foi possível verificar a engine. Confira se yt-dlp.exe está em Engine\\Bin e configure a pasta de FFmpeg/FFprobe em Configurações > Engine de mídia.";
+            EngineStatusMessage = "Não foi possível verificar as ferramentas. Use Configurar automaticamente ou confira yt-dlp.exe em Engine\\Bin e as pastas em Configurações.";
         }
+    }
+
+    public Task RefreshEngineHealthAsync()
+    {
+        return _downloadService is IDownloadEngineHealthProvider engineHealthProvider
+            ? CheckEngineHealthAsync(engineHealthProvider)
+            : Task.CompletedTask;
     }
 
     public void ActivateClipboardMonitoring()

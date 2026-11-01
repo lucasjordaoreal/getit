@@ -1,7 +1,10 @@
 using System;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
@@ -19,9 +22,12 @@ namespace GetIt_App;
 public sealed partial class MainPage : Page
 {
     public static ElementTheme CurrentTheme { get; set; } = ElementTheme.Default;
+    private static bool _mainWindowReadyNotified;
 
     // Loaded settings (kept in memory so we can update only the Theme field on toggle)
     private AppSettings _settings = new();
+    private bool _initialDependencyPromptShown;
+    private bool _dependencySetupBusy;
 
     public MainPageViewModel ViewModel { get; } = new();
 
@@ -168,6 +174,192 @@ public sealed partial class MainPage : Page
         {
             AppLogger.LogException(ex, "Failed to show the multiple-links dialog");
             ViewModel.InputError = "Não foi possível abrir a inclusão de vários links. Tente novamente.";
+        }
+    }
+
+    private async void ConfigureDependencies_Click(object sender, RoutedEventArgs e)
+    {
+        await ShowDependencySetupPromptAsync();
+    }
+
+    private async Task ShowDependencySetupPromptAsync(bool showAlreadyConfiguredMessage = true)
+    {
+        if (_dependencySetupBusy) return;
+
+        await ViewModel.RefreshEngineHealthAsync();
+        if (string.IsNullOrWhiteSpace(ViewModel.EngineStatusMessage))
+        {
+            if (showAlreadyConfiguredMessage)
+            {
+                DependencySetupInfoBar.Severity = InfoBarSeverity.Success;
+                DependencySetupInfoBar.Message = "FFmpeg, FFprobe e Deno já estão configurados.";
+                DependencySetupInfoBar.IsOpen = true;
+            }
+            return;
+        }
+
+        var details = new StackPanel { Spacing = 10, MinWidth = 420 };
+        details.Children.Add(new TextBlock
+        {
+            Text = "O GetIt pode baixar as dependências ausentes diretamente dos releases oficiais e validá-las antes de usá-las. Os arquivos ficam em %LOCALAPPDATA%\\GetIt\\Tools; não são incluídos no instalador nem hospedados por servidores do GetIt.",
+            TextWrapping = TextWrapping.Wrap
+        });
+        details.Children.Add(new TextBlock
+        {
+            Text = $"Verificação atual:{Environment.NewLine}{ViewModel.EngineStatusMessage}",
+            TextWrapping = TextWrapping.Wrap
+        });
+        details.Children.Add(new TextBlock
+        {
+            Text = "FFmpeg + FFprobe · BtbN FFmpeg 8.1.3 · licença GPLv3. Inclui libx264 para manter a conversão H.264 por CPU. SHA-256 do ZIP: 401dffcf14c301082e1fc03b0bc876b92ea676bfc521fc56e80a1537d137034f. O ZIP só será extraído após a verificação do hash.",
+            TextWrapping = TextWrapping.Wrap
+        });
+        details.Children.Add(new HyperlinkButton
+        {
+            Content = "Release BtbN e informações de build/licença",
+            NavigateUri = new Uri("https://github.com/BtbN/FFmpeg-Builds/releases/tag/autobuild-2026-10-31-12-59"),
+            HorizontalAlignment = HorizontalAlignment.Left
+        });
+        details.Children.Add(new TextBlock
+        {
+            Text = "Deno 2.7.1 · release oficial Deno · licença MIT declarada pelo projeto. SHA-256 oficial do ZIP: 94d71d4772436de27a0495933ca4bab7b6895992622b65baeaf4b7995dae1e69. A release não fornece um inventário completo separado das licenças de todas as dependências embutidas; isso não é apresentado como isenção ou aprovação jurídica.",
+            TextWrapping = TextWrapping.Wrap
+        });
+        details.Children.Add(new HyperlinkButton
+        {
+            Content = "Release Deno 2.7.1 e checksum oficial",
+            NavigateUri = new Uri("https://github.com/denoland/deno/releases/tag/v2.7.1"),
+            HorizontalAlignment = HorizontalAlignment.Left
+        });
+        details.Children.Add(new TextBlock
+        {
+            Text = "Os scripts EJS acompanham o executável oficial PyInstaller do yt-dlp e usam Unlicense; não serão baixados separadamente.",
+            TextWrapping = TextWrapping.Wrap
+        });
+        details.Children.Add(new HyperlinkButton
+        {
+            Content = "Documentação EJS e licença",
+            NavigateUri = new Uri("https://github.com/yt-dlp/yt-dlp/wiki/EJS"),
+            HorizontalAlignment = HorizontalAlignment.Left
+        });
+        details.Children.Add(new TextBlock
+        {
+            Text = "O download direto do fornecedor não é tratado como isenção automática. Para o asset BtbN fixo, os registros públicos examinados não incluem um pacote completo de fontes correspondentes e manifesto de dependências daquele build. O GetIt não hospeda nem inclui esses executáveis no instalador, mas não certifica a regularidade jurídica das condições de aquisição. Consulte as licenças e os materiais de origem antes de redistribuir o aplicativo.",
+            FontSize = 12,
+            TextWrapping = TextWrapping.Wrap
+        });
+
+        var dialog = new ContentDialog
+        {
+            Title = "Configuração inicial das dependências",
+            Content = new ScrollViewer
+            {
+                Content = details,
+                MaxHeight = 520,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto
+            },
+            PrimaryButtonText = "Configurar automaticamente",
+            SecondaryButtonText = "Configurar manualmente",
+            CloseButtonText = "Agora não",
+            DefaultButton = ContentDialogButton.Primary,
+            RequestedTheme = CurrentTheme,
+            XamlRoot = XamlRoot
+        };
+
+        var result = await dialog.ShowAsync();
+        if (result == ContentDialogResult.Primary)
+        {
+            await ConfigureDependenciesAsync();
+        }
+        else if (result == ContentDialogResult.Secondary && App.Window is MainWindow mainWindow)
+        {
+            mainWindow.NavigateToSettings();
+        }
+    }
+
+    private async Task ConfigureDependenciesAsync()
+    {
+        if (_dependencySetupBusy) return;
+        _dependencySetupBusy = true;
+        ConfigureDependenciesButton.IsEnabled = false;
+        DependencySetupInfoBar.IsOpen = false;
+
+        using var cancellation = new CancellationTokenSource();
+        var status = new TextBlock { TextWrapping = TextWrapping.Wrap };
+        var progressBar = new ProgressBar { Minimum = 0, Maximum = 100, IsIndeterminate = true };
+        var progressContent = new StackPanel { Spacing = 12, MinWidth = 360 };
+        progressContent.Children.Add(status);
+        progressContent.Children.Add(progressBar);
+        var progressDialog = new ContentDialog
+        {
+            Title = "Configurando dependências",
+            Content = progressContent,
+            CloseButtonText = "Cancelar",
+            RequestedTheme = CurrentTheme,
+            XamlRoot = XamlRoot
+        };
+
+        var progress = new Progress<DependencySetupProgress>(value =>
+        {
+            status.Text = value.Status;
+            progressBar.IsIndeterminate = value.TotalBytes is not > 0;
+            if (value.TotalBytes is > 0)
+            {
+                progressBar.Value = Math.Clamp(value.BytesReceived * 100d / value.TotalBytes.Value, 0, 100);
+            }
+        });
+
+        try
+        {
+            _dependencySetupBusy = true;
+            var setupTask = new ExternalDependencySetupService().ConfigureAsync(progress, cancellation.Token);
+            var dialogTask = progressDialog.ShowAsync().AsTask();
+            var completedTask = await Task.WhenAny(setupTask, dialogTask);
+            if (completedTask == dialogTask && !setupTask.IsCompleted)
+            {
+                cancellation.Cancel();
+            }
+            else
+            {
+                progressDialog.Hide();
+            }
+
+            var setupResult = await setupTask;
+            progressDialog.Hide();
+            await dialogTask;
+            await ViewModel.RefreshEngineHealthAsync();
+            if (!string.IsNullOrWhiteSpace(ViewModel.EngineStatusMessage))
+            {
+                DependencySetupInfoBar.Severity = InfoBarSeverity.Warning;
+                DependencySetupInfoBar.Message =
+                    $"As ferramentas baixadas foram validadas, mas ainda há uma dependência indisponível: {ViewModel.EngineStatusMessage}";
+                DependencySetupInfoBar.IsOpen = true;
+                return;
+            }
+
+            DependencySetupInfoBar.Severity = InfoBarSeverity.Success;
+            DependencySetupInfoBar.Message =
+                $"Configuração concluída. FFmpeg/FFprobe: {setupResult.FfmpegDirectory}. Deno: {setupResult.DenoDirectory}.";
+            DependencySetupInfoBar.IsOpen = true;
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        {
+            DependencySetupInfoBar.Severity = InfoBarSeverity.Informational;
+            DependencySetupInfoBar.Message = "Configuração cancelada. Nenhum caminho foi alterado; você pode tentar novamente.";
+            DependencySetupInfoBar.IsOpen = true;
+        }
+        catch (Exception exception)
+        {
+            AppLogger.LogException(exception, "Automatic dependency setup failed");
+            DependencySetupInfoBar.Severity = InfoBarSeverity.Error;
+            DependencySetupInfoBar.Message = $"Não foi possível configurar as dependências: {exception.Message} Você pode tentar novamente ou selecionar instalações existentes nas Configurações.";
+            DependencySetupInfoBar.IsOpen = true;
+        }
+        finally
+        {
+            _dependencySetupBusy = false;
+            ConfigureDependenciesButton.IsEnabled = true;
+            await ViewModel.RefreshEngineHealthAsync();
         }
     }
 
@@ -381,10 +573,26 @@ public sealed partial class MainPage : Page
 
         ApplyTheme(CurrentTheme);
         await PromptRestoreQueueAsync();
+        if (!_initialDependencyPromptShown)
+        {
+            _initialDependencyPromptShown = true;
+            await ShowDependencySetupPromptAsync(showAlreadyConfiguredMessage: false);
+#if DEBUG
+            if (!LayoutRegressionProbe.IsEnabled)
+#endif
+                NotifyMainWindowReady();
+        }
 #if DEBUG
         if (!LayoutRegressionProbe.IsEnabled)
 #endif
             ViewModel.ActivateClipboardMonitoring();
+    }
+
+    private static void NotifyMainWindowReady()
+    {
+        if (_mainWindowReadyNotified) return;
+        _mainWindowReadyNotified = true;
+        App.OnMainWindowReady();
     }
 
     private async Task PromptRestoreQueueAsync()

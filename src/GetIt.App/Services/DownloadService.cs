@@ -432,7 +432,8 @@ public partial class DownloadService : IDownloadService, IDownloadEngineHealthPr
         var issues = await CheckEngineAsync(
             includeFfmpeg: true,
             includeFfprobe: true,
-            cancellationToken: cancellationToken);
+            cancellationToken: cancellationToken,
+            includeDeno: true);
         return issues.Count == 0 ? null : FormatEngineIssues(issues);
     }
 
@@ -451,7 +452,8 @@ public partial class DownloadService : IDownloadService, IDownloadEngineHealthPr
     private static async Task<IReadOnlyList<DownloadEngineIssue>> CheckEngineAsync(
         bool includeFfmpeg,
         bool includeFfprobe,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool includeDeno = false)
     {
         var components = new List<(string Name, string Path, string[] Arguments)>
         {
@@ -476,6 +478,11 @@ public partial class DownloadService : IDownloadService, IDownloadEngineHealthPr
             issues.AddRange(await FfmpegEngineValidator.ValidateDirectoryAsync(FfmpegBinPath, cancellationToken));
         }
 
+        if (includeDeno)
+        {
+            issues.AddRange(await DenoEngineValidator.ValidateDirectoryAsync(DenoBinPath, cancellationToken));
+        }
+
         return issues;
     }
 
@@ -489,8 +496,8 @@ public partial class DownloadService : IDownloadService, IDownloadEngineHealthPr
         var details = string.Join(Environment.NewLine, issues.Select(issue =>
             $"{issue.Component}: {issue.Reason} ({issue.Path})"));
         return $"A engine de download/mídia está indisponível:{Environment.NewLine}{details}{Environment.NewLine}" +
-            "Confira yt-dlp.exe em Engine\\Bin e configure uma pasta compatível de FFmpeg/FFprobe em Configurações > Engine de mídia. " +
-            "O GetIt não baixa esses executáveis.";
+            "Use Configurar automaticamente para obter FFmpeg/FFprobe e Deno dos releases fixos, ou selecione instalações existentes em Configurações. " +
+            "O yt-dlp deve estar disponível em Engine\\Bin.";
     }
 
     private ProcessStartInfo CreateProcessStartInfo(IEnumerable<string> arguments)

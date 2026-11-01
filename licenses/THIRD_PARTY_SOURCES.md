@@ -1,8 +1,21 @@
 # GetIt — fontes correspondentes e gate de redistribuição
 
-**Composição planejada para 0.1.2:** somente `yt-dlp.exe` é distribuído dentre os runtimes de mídia/JS. FFmpeg/FFprobe e Deno são configurados externamente; FFplay e Node não são distribuídos. Assim, os avisos-fontes das builds FFmpeg e das dependências Rust/V8 de Deno não são usados como justificativa para redistribuir esses executáveis. O pacote de licenças oficial incorporado ao yt-dlp foi extraído e preservado.
+**Composição do instalador 0.1.2:** somente `yt-dlp.exe` é empacotado dentre os runtimes de mídia/JS. FFmpeg/FFprobe e Deno podem ser baixados diretamente de releases fixos dos fornecedores após consentimento explícito; FFplay e Node não são distribuídos nem baixados. Isso reduz a distribuição pelo instalador GetIt, mas não é tratado como isenção jurídica automática para o fluxo de aquisição. O pacote de licenças oficial incorporado ao yt-dlp foi extraído e preservado.
 
-Esta mudança de composição não declara conformidade jurídica geral nem valida a licença da build que cada usuário escolher para FFmpeg. O usuário deve obter a engine externa de uma fonte confiável e cumprir as condições indicadas pelo respectivo fornecedor.
+Esta mudança não declara conformidade jurídica geral. O consentimento informa a origem, hash, licença declarada e as lacunas de fontes/notices conhecidas; GetIt não hospeda os arquivos nem os inclui no instalador. O fluxo não substitui aconselhamento jurídico nem resolve as obrigações do publicador upstream.
+
+## Aquisição automática opcional (não empacotada pelo GetIt)
+
+| Componente | Origem fixa | SHA-256 validado | Licença/material observado | Limitação divulgada |
+|---|---|---|---|---|
+| FFmpeg/FFprobe BtbN 8.1 GPL estático | [Release BtbN `autobuild-2026-10-31-12-59`](https://github.com/BtbN/FFmpeg-Builds/releases/tag/autobuild-2026-10-31-12-59), asset `ffmpeg-n8.1.3-27-g8dca1586f4-win64-gpl-8.1.zip` | `401dffcf14c301082e1fc03b0bc876b92ea676bfc521fc56e80a1537d137034f` | GPLv3; commit FFmpeg `8dca1586f468bfcbb78ae3ed618af1361d9f140a`; scripts `5031c6f1082414e53688d39e521849905071070d`. | Não foi obtido pacote de fontes correspondente/manifesto atestado para cada biblioteca deste asset. O app informa isso antes de iniciar o download e não declara conformidade jurídica. |
+| Deno 2.7.1 x64 | [Release Deno `v2.7.1`](https://github.com/denoland/deno/releases/tag/v2.7.1), asset `deno-x86_64-pc-windows-msvc.zip` | `94d71d4772436de27a0495933ca4bab7b6895992622b65baeaf4b7995dae1e69` (checksum oficial) | Projeto Deno declara MIT. O executável local verificado anteriormente corresponde ao asset, SHA-256 `6C35A4C45D521B340E5CE78DFB25014E5B04894067B5E71C1180273FFA5B3792`. | A release não fornece notices completas das dependências Rust/V8 incorporadas; a lacuna é exibida no diálogo. |
+
+O programa baixa os ZIPs diretamente dessas URLs, valida o SHA-256 inteiro antes de extrair, extrai somente `ffmpeg.exe`, `ffprobe.exe` e `LICENSE.txt` para a pasta própria FFmpeg, e `deno.exe` mais a licença MIT para a pasta Deno em `%LOCALAPPDATA%\GetIt\Tools`. Valida versões/encoders, executa Deno em JavaScript sintético e faz uma conversão H.264 sintética com FFprobe antes de salvar caminhos em `%APPDATA%\GetIt`. Arquivos anteriores e configurações só são substituídos após validação; downloads parciais ficam em staging e são removidos em falhas/cancelamento.
+
+### yt-dlp EJS
+
+A [documentação oficial EJS do yt-dlp](https://github.com/yt-dlp/yt-dlp/wiki/EJS) informa que executáveis oficiais PyInstaller (incluindo `yt-dlp.exe`) já incluem `yt-dlp-ejs`. A versão empacotada pelo GetIt é a release oficial `2026.08.19`, cujo agregado de licenças está em `texts/yt-dlp-2026.08.19-THIRD-PARTY-LICENSES.txt`. Portanto, o aplicativo não baixa nem executa scripts EJS externos; Deno é fornecido como runtime para os scripts já presentes no yt-dlp.
 
 ## Gyan existente (não redistribuída)
 
@@ -93,7 +106,7 @@ Uma adoção futura exigiria avaliar, em conjunto, `GetIt.App.csproj`, `Package.
 
 - **Identificação e correspondência verificadas:** Deno Land Inc. / `denoland/deno`, tag `v2.7.1` (release de 25/02/2026). O executável local e o executável extraído do ZIP oficial x64 apresentam SHA-256 idêntico: `6C35A4C45D521B340E5CE78DFB25014E5B04894067B5E71C1180273FFA5B3792`. O ZIP `deno-x86_64-pc-windows-msvc.zip` foi obtido da release fixa e validado pelo digest oficial `94D71D4772436DE27A0495933CA4BAB7B6895992622B65BAEAF4B7995DAE1E69`; o arquivo `.sha256sum` oficial reporta o mesmo valor. `deno.exe --version` retorna 2.7.1, V8 14.5.201.2-rusty e TypeScript 5.9.2. A release ZIP contém apenas `deno.exe`, não um arquivo de avisos.
 - **Materiais upstream observados:** a tag resolve ao commit `1df618d969894353731981a17784816167ad82fb`, declara MIT e contém `Cargo.lock` (blob Git `b47ff84f6611bd8becfc921900f9ff799f87fd23`). Isso fixa manifestos de crates Rust, mas não é um inventário de licenças das dependências efetivamente ligadas: também é necessário resolver os metadados/licenças dos crates transitivos e documentar V8 e demais componentes C++ empacotados. Não foi encontrado um SBOM/arquivo oficial de notices associado ao asset.
-- **Limite de evidência e alternativa adotada:** não é seguro fabricar `Deno-THIRD-PARTY-NOTICES.txt` a partir apenas do `Cargo.lock` nem declarar completa a lista de dependências incorporadas sem verificar V8 e as licenças de cada componente. Por isso, o instalador 0.1.2 não redistribui Deno. O app mantém o suporte: em **Configurações > Runtime JavaScript para YouTube**, o usuário aponta para Deno 2.3.0 ou posterior; o diretório é acrescentado apenas ao PATH do processo yt-dlp. A ausência de Deno não bloqueia outros fluxos, mas extratores que exigem JavaScript precisam do runtime configurado. O MIT da fonte é mantido em `licenses/texts/Deno-MIT-LICENSE.md` e não é tratado como notice suficiente para o binário completo.
+- **Limite de evidência e alternativa adotada:** não é seguro fabricar `Deno-THIRD-PARTY-NOTICES.txt` a partir apenas do `Cargo.lock` nem declarar completa a lista de dependências incorporadas sem verificar V8 e as licenças de cada componente. Por isso, o instalador 0.1.2 não inclui Deno. O app pode baixar o ZIP oficial 2.7.1 após consentimento, verifica o checksum da release, guarda `deno.exe` e a licença MIT em `%LOCALAPPDATA%\GetIt\Tools` e configura o PATH apenas para o processo yt-dlp. A ausência de Deno não bloqueia outros fluxos, mas extratores que exigem JavaScript precisam do runtime. A lacuna de notices Rust/V8 é divulgada; o MIT não é apresentado como notice suficiente para o binário completo.
 
 ## yt-dlp 2026.08.19 — inventário de licença incluído
 
@@ -105,10 +118,10 @@ Referências oficiais consultadas: [suporte Windows da BtbN](https://github.com/
 
 ## Gate de publicação e conteúdo do pacote
 
-Como FFmpeg/FFprobe/FFplay e Deno não serão redistribuídos, pacotes de fontes/notices dessas engines não fazem parte do gate da nova composição. O script `deploy/installer/build_installer.ps1`:
+Como FFmpeg/FFprobe/FFplay e Deno não estão no instalador, os pacotes dessas engines não fazem parte do gate de empacotamento. O download automático direto é opcional, exige consentimento, valida hash antes da extração e divulga as lacunas de fontes/notices. Isso não decide a aplicação jurídica das condições de aquisição. O script `deploy/installer/build_installer.ps1`:
 
 - exige `yt-dlp.exe` e os avisos/licenças oficiais do yt-dlp, além dos componentes .NET/Windows App SDK efetivamente incluídos;
-- verifica que a publicação inclui `yt-dlp.exe` e rejeita FFmpeg, FFprobe, FFplay, Node ou Deno se algum deles aparecer no resultado;
+- verifica que a publicação inclui `yt-dlp.exe` e rejeita FFmpeg, FFprobe, FFplay, Node ou Deno se algum deles aparecer no resultado; as instalações sob demanda ficam em `%LOCALAPPDATA%\GetIt\Tools`, fora do instalador;
 - mantém os avisos e licenças dos runtimes e pacotes .NET/Windows App SDK efetivamente publicados.
 
 Durante a atualização in-place, `GetItInstaller.iss` remove os executáveis FFmpeg/FFprobe/FFplay, Deno e Node que versões anteriores copiavam para `{app}\Engine\Bin`. Preferências e histórico em `%APPDATA%\GetIt` não são removidos; uma configuração antiga de FFmpeg que apontava para a pasta de instalação precisa ser substituída em **Configurações > Engine de mídia**. A decisão não constitui aconselhamento jurídico.

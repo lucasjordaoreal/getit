@@ -2,8 +2,9 @@
 
 ### ✨ Novidades e melhorias:
 - **Base atualizada:** migração do aplicativo para .NET 10 e Windows App SDK self-contained na publicação x64.
-- **Engine de mídia externa:** configuração de uma pasta com FFmpeg/FFprobe, com validação de versões e encoders necessários; os binários não são baixados nem incluídos no instalador.
-- **Runtime JavaScript externo:** Deno pode ser configurado para os extratores do YouTube que exigem JavaScript; o instalador não o redistribui e a configuração é validada.
+- **Engine de mídia:** configuração automática opcional de FFmpeg/FFprobe após consentimento ou seleção de uma pasta existente; o instalador não inclui os binários e a configuração valida versões, encoders e um teste H.264 sintético.
+- **Configuração automática:** após consentimento, o app baixa as versões fixas de FFmpeg/FFprobe BtbN e Deno diretamente dos releases dos fornecedores, valida SHA-256 e funcionalidade e as instala em `%LOCALAPPDATA%\GetIt\Tools`. O instalador não contém esses binários; instalações manuais continuam disponíveis. O download sob demanda não é declarado como isenção jurídica.
+- **Runtime JavaScript para YouTube:** Deno pode ser configurado automaticamente para extratores que exigem JavaScript. Os scripts EJS acompanham o executável oficial PyInstaller do yt-dlp; nenhum script separado é obtido.
 - **Atualização de engine:** durante a atualização in-place, executáveis FFmpeg/FFprobe/FFplay, Deno e Node.js copiados por versões anteriores são removidos do diretório do aplicativo. Configurações e histórico em `%APPDATA%\GetIt` são preservados; se FFmpeg apontava para a pasta da instalação antiga, configure uma pasta externa após atualizar.
 - **Downloads mais confiáveis:** fila sequencial, isolamento dos arquivos de cada operação, preservação contra sobrescrita acidental e retry de análise e download.
 - **Presets de download:** perfis MP4, MP3 a 320 kbps e FLAC para novos itens, com personalização individual e opções avançadas MOV e WAV.
@@ -14,6 +15,11 @@
 - **Reprodução:** o histórico indica quando um item está tocando, com animação horizontal suave para o rótulo.
 - **Atualizador:** validação do asset oficial do GitHub e do SHA-256 publicado antes de iniciar o instalador; cancelamento disponível durante o download.
 - **Estabilidade:** limites e validação de dados persistidos, recuperação de JSON por cópias locais e tratamento explícito de falhas de engine e atualização.
+
+### Artefato local para validação
+- Instalador Inno Setup x64: `bin/Installer/GetIt-Setup-v0.1.2.exe`
+- SHA-256: `CE053412189AA05F0EBE4C10890FDD491C46CC610CD4D8BC6EAC55382A624F56`
+- O arquivo foi gerado localmente e não foi publicado nem executado. FFmpeg/FFprobe e Deno não são incluídos no instalador; o pacote baixado sob consentimento é uma funcionalidade do aplicativo e não representa, por si só, uma conclusão de conformidade jurídica. A distribuição pública permanece condicionada à revisão das obrigações de terceiros e à validação de instalação/upgrade em ambiente limpo.
 
 # 🚀 GetIt - v0.1.1
 
