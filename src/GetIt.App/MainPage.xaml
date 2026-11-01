@@ -27,7 +27,20 @@
     <Grid Background="{ThemeResource AppSurfaceBrush}">
 
         <!-- Use a Grid to allow ListView to take up remaining space and push the action buttons to the bottom -->
-        <Grid MaxWidth="1120" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="24,18,24,20" RowSpacing="14" Loaded="Page_Loaded">
+        <Grid x:Name="MainLayout" MaxWidth="1520" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="18,16" RowSpacing="14" Loaded="Page_Loaded">
+            <VisualStateManager.VisualStateGroups>
+                <VisualStateGroup x:Name="MainWindowSizeStates">
+                    <VisualState x:Name="WideMainLayout">
+                        <VisualState.StateTriggers>
+                            <AdaptiveTrigger MinWindowWidth="1000" />
+                        </VisualState.StateTriggers>
+                        <VisualState.Setters>
+                            <Setter Target="QueueSummaryText.(Grid.Row)" Value="0" />
+                            <Setter Target="QueueSummaryText.(Grid.Column)" Value="1" />
+                        </VisualState.Setters>
+                    </VisualState>
+                </VisualStateGroup>
+            </VisualStateManager.VisualStateGroups>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -38,8 +51,9 @@
 
             <Grid Grid.Row="0" ColumnSpacing="16">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
                 <StackPanel Spacing="2"><TextBlock Text="Baixar mídia" FontSize="28" FontWeight="Bold" Foreground="{ThemeResource AppTextBrush}" /><TextBlock Text="Cole um link, escolha o formato e comece o download." TextWrapping="Wrap" FontSize="14" Foreground="{ThemeResource AppSecondaryTextBrush}" /></StackPanel>
-                <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.QueueSummary, Mode=OneWay}" Foreground="{ThemeResource AppSecondaryTextBrush}" FontSize="12" TextWrapping="Wrap" MaxWidth="180" VerticalAlignment="Center" />
+                <TextBlock x:Name="QueueSummaryText" Grid.Row="1" Text="{x:Bind ViewModel.QueueSummary, Mode=OneWay}" Foreground="{ThemeResource AppSecondaryTextBrush}" FontSize="12" TextWrapping="Wrap" MaxWidth="240" VerticalAlignment="Center" />
             </Grid>
 
             <Border Grid.Row="1" Background="{ThemeResource AppCardBrush}"
@@ -69,12 +83,12 @@
                                      Background="{ThemeResource AppInputBrush}" BorderBrush="{ThemeResource AppBorderBrush}" BorderThickness="1"
                                      Foreground="{ThemeResource AppTextBrush}"/>
 
-                            <Button Grid.Column="1" Click="Paste_Click" IsEnabled="{x:Bind ViewModel.IsNotDownloading, Mode=OneWay}" CornerRadius="8" Padding="10" HorizontalAlignment="Stretch" ToolTipService.ToolTip="Colar link da área de transferência" AutomationProperties.Name="Colar link">
+                            <Button Grid.Column="1" Click="Paste_Click" IsEnabled="{x:Bind ViewModel.IsNotDownloading, Mode=OneWay}" MinHeight="40" CornerRadius="8" Padding="10" HorizontalAlignment="Stretch" ToolTipService.ToolTip="Colar link da área de transferência" AutomationProperties.Name="Colar link">
                                 <StackPanel Orientation="Horizontal" Spacing="6"><FontIcon Glyph="&#xE77F;" FontSize="14" /><TextBlock Text="Colar" /></StackPanel>
                             </Button>
                                 <Button x:Name="AddUrlButton" Grid.Column="2" Command="{x:Bind ViewModel.AddUrlCommand}"
                                     IsEnabled="{x:Bind ViewModel.CanAddUrl, Mode=OneWay}"
-                                    CornerRadius="8" Padding="12,10" FontWeight="SemiBold" HorizontalAlignment="Stretch"
+                                    MinHeight="40" CornerRadius="8" Padding="12,10" FontWeight="SemiBold" HorizontalAlignment="Stretch"
                                     Background="{ThemeResource AppAccentBrush}" Foreground="{ThemeResource AppAccentTextBrush}"
                                     VerticalAlignment="Center">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
@@ -84,7 +98,7 @@
                             </Button>
                             <Button Grid.Column="3" Command="{x:Bind ViewModel.ClearQueueCommand}"
                                     Visibility="{x:Bind ViewModel.HasItemsVisibility, Mode=OneWay}"
-                                    IsEnabled="{x:Bind ViewModel.CanClearQueue, Mode=OneWay}" AutomationProperties.Name="Limpar fila" ToolTipService.ToolTip="Limpar fila" Padding="10" CornerRadius="8"
+                                    IsEnabled="{x:Bind ViewModel.CanClearQueue, Mode=OneWay}" MinHeight="40" MinWidth="40" AutomationProperties.Name="Limpar fila" ToolTipService.ToolTip="Limpar fila" Padding="10" CornerRadius="8"
                                     Background="{ThemeResource AppInputBrush}" Foreground="{ThemeResource AppTextBrush}"
                                     BorderBrush="{ThemeResource AppBorderBrush}" BorderThickness="1">
                                 <FontIcon Glyph="&#xE74D;" FontSize="14" />
@@ -139,56 +153,73 @@
                 </ListView.ItemContainerStyle>
                 <ListView.ItemTemplate>
                     <DataTemplate x:DataType="viewModels:DownloadItemViewModel">
-                        <Border Background="{ThemeResource AppCardBrush}" BorderBrush="{ThemeResource AppBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="12">
-                            <Grid ColumnSpacing="12" RowSpacing="8">
-                                <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
-                                <Grid.ColumnDefinitions><ColumnDefinition Width="100" /><ColumnDefinition Width="*" MinWidth="0" /><ColumnDefinition Width="116" /></Grid.ColumnDefinitions>
-                                <Border CornerRadius="6" Height="62" Background="{ThemeResource AppInputBrush}" VerticalAlignment="Top">
+                        <Border Background="{ThemeResource AppCardBrush}" BorderBrush="{ThemeResource AppBorderBrush}" BorderThickness="1" CornerRadius="10" Padding="14">
+                            <Grid ColumnSpacing="12" RowSpacing="10">
+                                <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="88" /><ColumnDefinition Width="*" MinWidth="0" /><ColumnDefinition Width="132" /></Grid.ColumnDefinitions>
+                                <Border Grid.RowSpan="2" CornerRadius="6" Height="56" Background="{ThemeResource AppInputBrush}" VerticalAlignment="Top">
                                     <Image Source="{x:Bind ThumbnailImage, Mode=OneWay}" Stretch="UniformToFill" Visibility="{x:Bind HasMetadataVisibility, Mode=OneWay}" />
                                 </Border>
-                                <ProgressRing IsActive="{x:Bind IsFetching, Mode=OneWay}" Width="24" Height="24" VerticalAlignment="Top" Margin="0,19,0,0" Visibility="{x:Bind IsFetchingVisibility, Mode=OneWay}" />
-                                <TextBlock Grid.Column="1" VerticalAlignment="Center" Text="{x:Bind DisplayTitle, Mode=OneWay}" ToolTipService.ToolTip="{x:Bind DisplayTitle, Mode=OneWay}" FontWeight="Bold" FontSize="14" Foreground="{ThemeResource AppTextBrush}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
-                                <!-- Fixed slots reserve the right edge even when another action is hidden. -->
+                                <ProgressRing IsActive="{x:Bind IsFetching, Mode=OneWay}" Width="28" Height="28" VerticalAlignment="Top" Margin="0,14,0,0" Visibility="{x:Bind IsFetchingVisibility, Mode=OneWay}" />
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="3">
+                                    <TextBlock Text="{x:Bind DisplayTitle, Mode=OneWay}" ToolTipService.ToolTip="{x:Bind DisplayTitle, Mode=OneWay}" FontWeight="SemiBold" FontSize="14" Foreground="{ThemeResource AppTextBrush}" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxLines="2" />
+                                    <TextBlock Text="{x:Bind Url}" ToolTipService.ToolTip="{x:Bind Url}" Visibility="{x:Bind HasMetadataVisibility, Mode=OneWay}" FontSize="12" Foreground="{ThemeResource AppSecondaryTextBrush}" TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
                                 <Grid Grid.Column="2" ColumnSpacing="6" VerticalAlignment="Top">
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="34" /><ColumnDefinition Width="34" /><ColumnDefinition Width="34" /></Grid.ColumnDefinitions>
-                                    <Button Command="{x:Bind PrepareAnotherDownloadCommand}" Visibility="{x:Bind OpenLocationVisibility, Mode=OneWay}" IsEnabled="{x:Bind CanEditQueue, Mode=OneWay}" ToolTipService.ToolTip="Baixar em outro formato" AutomationProperties.Name="Baixar em outro formato" Width="34" Height="34" Padding="0" Background="{ThemeResource AppAccentBrush}" Foreground="{ThemeResource AppAccentTextBrush}" CornerRadius="8"><FontIcon Glyph="&#xE8AB;" FontSize="15" /></Button>
-                                    <Button Grid.Column="1" Command="{x:Bind OpenLocationCommand}" Visibility="{x:Bind OpenLocationVisibility, Mode=OneWay}" ToolTipService.ToolTip="Mostrar na pasta" AutomationProperties.Name="Mostrar na pasta" Width="34" Height="34" Padding="0" Background="{ThemeResource AppAccentBrush}" Foreground="{ThemeResource AppAccentTextBrush}" CornerRadius="8"><FontIcon Glyph="&#xE8B7;" FontSize="15" /></Button>
-                                    <Button Grid.Column="2" Command="{x:Bind RemoveCommand}" IsEnabled="{x:Bind CanEditQueue, Mode=OneWay}" ToolTipService.ToolTip="Remover da fila" AutomationProperties.Name="Remover da fila" Width="34" Height="34" Padding="0" Background="Transparent" Foreground="{ThemeResource AppSecondaryTextBrush}" CornerRadius="8" BorderThickness="0"><FontIcon Glyph="&#xE711;" FontSize="13" /></Button>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="40" /><ColumnDefinition Width="40" /><ColumnDefinition Width="40" /></Grid.ColumnDefinitions>
+                                    <Button Command="{x:Bind PrepareAnotherDownloadCommand}" Visibility="{x:Bind OpenLocationVisibility, Mode=OneWay}" IsEnabled="{x:Bind CanEditQueue, Mode=OneWay}" ToolTipService.ToolTip="Baixar em outro formato" AutomationProperties.Name="Baixar em outro formato" Width="40" Height="40" Padding="0" Background="{ThemeResource AppAccentBrush}" Foreground="{ThemeResource AppAccentTextBrush}" CornerRadius="8"><FontIcon Glyph="&#xE8AB;" FontSize="15" /></Button>
+                                    <Button Grid.Column="1" Command="{x:Bind OpenLocationCommand}" Visibility="{x:Bind OpenLocationVisibility, Mode=OneWay}" ToolTipService.ToolTip="Mostrar na pasta" AutomationProperties.Name="Mostrar na pasta" Width="40" Height="40" Padding="0" Background="{ThemeResource AppAccentBrush}" Foreground="{ThemeResource AppAccentTextBrush}" CornerRadius="8"><FontIcon Glyph="&#xE8B7;" FontSize="15" /></Button>
+                                    <Button Grid.Column="2" Command="{x:Bind RemoveCommand}" IsEnabled="{x:Bind CanEditQueue, Mode=OneWay}" ToolTipService.ToolTip="Remover da fila" AutomationProperties.Name="Remover da fila" Width="40" Height="40" Padding="0" Background="Transparent" Foreground="{ThemeResource AppSecondaryTextBrush}" CornerRadius="8" BorderThickness="0"><FontIcon Glyph="&#xE711;" FontSize="13" /></Button>
                                 </Grid>
-                                <Grid Grid.Row="1" Grid.ColumnSpan="3" ColumnSpacing="8" Visibility="{x:Bind HasMetadataVisibility, Mode=OneWay}">
+                                <Grid x:Name="FormatOptionsGrid" Grid.Row="2" Grid.ColumnSpan="3" ColumnSpacing="8" RowSpacing="8" Visibility="{x:Bind HasMetadataVisibility, Mode=OneWay}">
+                                    <VisualStateManager.VisualStateGroups>
+                                        <VisualStateGroup x:Name="FormatLayoutStates">
+                                            <VisualState x:Name="WideFormatLayout">
+                                                <VisualState.StateTriggers>
+                                                    <AdaptiveTrigger MinWindowWidth="1000" />
+                                                </VisualState.StateTriggers>
+                                                <VisualState.Setters>
+                                                    <Setter Target="FormatOptionsBorder.(Grid.ColumnSpan)" Value="1" />
+                                                    <Setter Target="AudioFormatOptions.(Grid.ColumnSpan)" Value="1" />
+                                                    <Setter Target="VideoFormatOptions.(Grid.Row)" Value="0" />
+                                                    <Setter Target="AudioFormatOptions.(Grid.Row)" Value="0" />
+                                                    <Setter Target="VideoFormatOptions.(Grid.Column)" Value="1" />
+                                                    <Setter Target="AudioFormatOptions.(Grid.Column)" Value="1" />
+                                                </VisualState.Setters>
+                                            </VisualState>
+                                        </VisualStateGroup>
+                                    </VisualStateManager.VisualStateGroups>
+                                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
                                     <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" MinWidth="0" /></Grid.ColumnDefinitions>
-                                    <Border Background="{ThemeResource AppInputBrush}" BorderBrush="{ThemeResource AppBorderBrush}" BorderThickness="1" CornerRadius="12" Padding="2">
+                                    <Border x:Name="FormatOptionsBorder" Grid.ColumnSpan="2" Background="{ThemeResource AppInputBrush}" BorderBrush="{ThemeResource AppBorderBrush}" BorderThickness="1" CornerRadius="12" Padding="2">
                                         <StackPanel Orientation="Horizontal">
-                                            <ToggleButton Content="MP4" IsChecked="{x:Bind IsMp4Selected, Mode=TwoWay}" IsEnabled="{x:Bind CanEditQueue, Mode=OneWay}" AutomationProperties.Name="Formato MP4" CornerRadius="10" Padding="8,4" MinWidth="0" FontSize="12" FontWeight="Bold" Background="Transparent" Foreground="{ThemeResource AppTextBrush}" />
-                                            <ToggleButton Content="MOV" IsChecked="{x:Bind IsMovSelected, Mode=TwoWay}" IsEnabled="{x:Bind CanEditQueue, Mode=OneWay}" AutomationProperties.Name="Formato MOV" CornerRadius="10" Padding="8,4" MinWidth="0" FontSize="12" FontWeight="Bold" Background="Transparent" Foreground="{ThemeResource AppTextBrush}" />
-                                            <ToggleButton Content="MP3" IsChecked="{x:Bind IsMp3Selected, Mode=TwoWay}" IsEnabled="{x:Bind CanEditQueue, Mode=OneWay}" AutomationProperties.Name="Formato MP3" CornerRadius="10" Padding="8,4" MinWidth="0" FontSize="12" FontWeight="Bold" Background="Transparent" Foreground="{ThemeResource AppTextBrush}" />
-                                            <ToggleButton Content="WAV" IsChecked="{x:Bind IsWavSelected, Mode=TwoWay}" IsEnabled="{x:Bind CanEditQueue, Mode=OneWay}" AutomationProperties.Name="Formato WAV" CornerRadius="10" Padding="8,4" MinWidth="0" FontSize="12" FontWeight="Bold" Background="Transparent" Foreground="{ThemeResource AppTextBrush}" />
-                                            <ToggleButton Content="FLAC" IsChecked="{x:Bind IsFlacSelected, Mode=TwoWay}" IsEnabled="{x:Bind CanEditQueue, Mode=OneWay}" AutomationProperties.Name="Formato FLAC" CornerRadius="10" Padding="8,4" MinWidth="0" FontSize="12" FontWeight="Bold" Background="Transparent" Foreground="{ThemeResource AppTextBrush}" />
+                                            <ToggleButton Content="MP4" IsChecked="{x:Bind IsMp4Selected, Mode=TwoWay}" IsEnabled="{x:Bind CanEditQueue, Mode=OneWay}" AutomationProperties.Name="Formato MP4" CornerRadius="10" MinHeight="40" Padding="8,4" MinWidth="0" FontSize="12" FontWeight="Bold" Background="Transparent" Foreground="{ThemeResource AppTextBrush}" />
+                                            <ToggleButton Content="MOV" IsChecked="{x:Bind IsMovSelected, Mode=TwoWay}" IsEnabled="{x:Bind CanEditQueue, Mode=OneWay}" AutomationProperties.Name="Formato MOV" CornerRadius="10" MinHeight="40" Padding="8,4" MinWidth="0" FontSize="12" FontWeight="Bold" Background="Transparent" Foreground="{ThemeResource AppTextBrush}" />
+                                            <ToggleButton Content="MP3" IsChecked="{x:Bind IsMp3Selected, Mode=TwoWay}" IsEnabled="{x:Bind CanEditQueue, Mode=OneWay}" AutomationProperties.Name="Formato MP3" CornerRadius="10" MinHeight="40" Padding="8,4" MinWidth="0" FontSize="12" FontWeight="Bold" Background="Transparent" Foreground="{ThemeResource AppTextBrush}" />
+                                            <ToggleButton Content="WAV" IsChecked="{x:Bind IsWavSelected, Mode=TwoWay}" IsEnabled="{x:Bind CanEditQueue, Mode=OneWay}" AutomationProperties.Name="Formato WAV" CornerRadius="10" MinHeight="40" Padding="8,4" MinWidth="0" FontSize="12" FontWeight="Bold" Background="Transparent" Foreground="{ThemeResource AppTextBrush}" />
+                                            <ToggleButton Content="FLAC" IsChecked="{x:Bind IsFlacSelected, Mode=TwoWay}" IsEnabled="{x:Bind CanEditQueue, Mode=OneWay}" AutomationProperties.Name="Formato FLAC" CornerRadius="10" MinHeight="40" Padding="8,4" MinWidth="0" FontSize="12" FontWeight="Bold" Background="Transparent" Foreground="{ThemeResource AppTextBrush}" />
                                         </StackPanel>
                                     </Border>
-                                    <ComboBox Grid.Column="1" Visibility="{x:Bind IsVideoOptionsVisibility, Mode=OneWay}" ItemsSource="{x:Bind AvailableFormats, Mode=OneWay}" SelectedItem="{x:Bind SelectedFormat, Mode=TwoWay}" DisplayMemberPath="DisplayName" AutomationProperties.Name="Qualidade do vídeo" MinWidth="0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" CornerRadius="12" Padding="10,4" Background="{ThemeResource AppInputBrush}" Foreground="{ThemeResource AppTextBrush}" BorderBrush="{ThemeResource AppBorderBrush}" BorderThickness="1" IsEnabled="{x:Bind CanEditQueue, Mode=OneWay}" />
-                                    <ComboBox Grid.Column="1" Visibility="{x:Bind IsMp3OptionsVisibility, Mode=OneWay}" ItemsSource="{x:Bind AvailableAudioBitrates, Mode=OneWay}" SelectedItem="{x:Bind SelectedAudioBitrate, Mode=TwoWay}" DisplayMemberPath="Name" AutomationProperties.Name="Qualidade do MP3" MinWidth="0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" CornerRadius="12" Padding="10,4" Background="{ThemeResource AppInputBrush}" Foreground="{ThemeResource AppTextBrush}" BorderBrush="{ThemeResource AppBorderBrush}" BorderThickness="1" IsEnabled="{x:Bind CanEditQueue, Mode=OneWay}" />
+                                    <ComboBox x:Name="AudioFormatOptions" Grid.Row="1" Grid.ColumnSpan="2" Visibility="{x:Bind IsMp3OptionsVisibility, Mode=OneWay}" ItemsSource="{x:Bind AvailableAudioBitrates, Mode=OneWay}" SelectedItem="{x:Bind SelectedAudioBitrate, Mode=TwoWay}" DisplayMemberPath="Name" AutomationProperties.Name="Qualidade do MP3" MinWidth="0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" CornerRadius="12" Padding="10,4" Background="{ThemeResource AppInputBrush}" Foreground="{ThemeResource AppTextBrush}" BorderBrush="{ThemeResource AppBorderBrush}" BorderThickness="1" IsEnabled="{x:Bind CanEditQueue, Mode=OneWay}" />
+                                    <ComboBox x:Name="VideoFormatOptions" Grid.Row="1" Grid.ColumnSpan="2" Visibility="{x:Bind IsVideoOptionsVisibility, Mode=OneWay}" ItemsSource="{x:Bind AvailableFormats, Mode=OneWay}" SelectedItem="{x:Bind SelectedFormat, Mode=TwoWay}" DisplayMemberPath="DisplayName" AutomationProperties.Name="Qualidade do vídeo" MinWidth="0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" CornerRadius="12" Padding="10,4" Background="{ThemeResource AppInputBrush}" Foreground="{ThemeResource AppTextBrush}" BorderBrush="{ThemeResource AppBorderBrush}" BorderThickness="1" IsEnabled="{x:Bind CanEditQueue, Mode=OneWay}" />
                                 </Grid>
-                                <StackPanel Grid.Row="2" Grid.ColumnSpan="3" Spacing="6">
-                                    <Grid ColumnSpacing="12">
-                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" MinWidth="0" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                                        <TextBlock Text="{x:Bind StatusMessage, Mode=OneWay}" ToolTipService.ToolTip="{x:Bind StatusMessage, Mode=OneWay}" TextTrimming="CharacterEllipsis" FontWeight="SemiBold" FontSize="12" Foreground="{x:Bind StatusColor, Mode=OneWay}" />
-                                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" Visibility="{x:Bind IsDownloadingVisibility, Mode=OneWay}">
-                                            <TextBlock Text="{x:Bind Speed, Mode=OneWay}" FontSize="11" Foreground="{ThemeResource AppSecondaryTextBrush}" /><TextBlock Text="•" FontSize="11" Foreground="{ThemeResource AppSecondaryTextBrush}" /><TextBlock Text="Faltam:" FontSize="11" Foreground="{ThemeResource AppSecondaryTextBrush}" /><TextBlock Text="{x:Bind Eta, Mode=OneWay}" FontSize="11" Foreground="{ThemeResource AppSecondaryTextBrush}" />
-                                        </StackPanel>
-                                    </Grid>
+                                <StackPanel Grid.Row="3" Grid.ColumnSpan="3" Spacing="8">
+                                    <TextBlock Text="{x:Bind StatusMessage, Mode=OneWay}" ToolTipService.ToolTip="{x:Bind StatusMessage, Mode=OneWay}" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxLines="3" FontWeight="SemiBold" FontSize="12" Foreground="{ThemeResource AppTextBrush}" />
+                                    <StackPanel Orientation="Horizontal" Spacing="6" Visibility="{x:Bind IsDownloadingVisibility, Mode=OneWay}">
+                                        <TextBlock Text="{x:Bind Speed, Mode=OneWay}" FontSize="12" Foreground="{ThemeResource AppSecondaryTextBrush}" /><TextBlock Text="•" FontSize="12" Foreground="{ThemeResource AppSecondaryTextBrush}" /><TextBlock Text="Faltam:" FontSize="12" Foreground="{ThemeResource AppSecondaryTextBrush}" /><TextBlock Text="{x:Bind Eta, Mode=OneWay}" FontSize="12" Foreground="{ThemeResource AppSecondaryTextBrush}" />
+                                    </StackPanel>
                                     <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <Button Content="Tentar análise novamente" Command="{x:Bind RetryAnalysisCommand}"
+                                        <Button Content="Tentar análise novamente" Command="{x:Bind RetryAnalysisCommand}" MinHeight="40"
                                                 Visibility="{x:Bind RetryAnalysisVisibility, Mode=OneWay}"
                                                 AutomationProperties.Name="Tentar análise novamente" Padding="10,5" CornerRadius="6"
                                                 Background="{ThemeResource AppInputBrush}" Foreground="{ThemeResource AppTextBrush}"
                                                 BorderBrush="{ThemeResource AppBorderBrush}" BorderThickness="1" />
-                                        <Button Content="Tentar novamente" Command="{x:Bind RetryDownloadCommand}"
+                                        <Button Content="Tentar novamente" Command="{x:Bind RetryDownloadCommand}" MinHeight="40"
                                                 Visibility="{x:Bind RetryDownloadVisibility, Mode=OneWay}"
                                                 AutomationProperties.Name="Tentar novamente" Padding="10,5" CornerRadius="6"
                                                 Background="{ThemeResource AppInputBrush}" Foreground="{ThemeResource AppTextBrush}"
                                                 BorderBrush="{ThemeResource AppBorderBrush}" BorderThickness="1" />
-                                        <Button Content="Salvar outra cópia" Command="{x:Bind SaveAnotherCopyCommand}"
+                                        <Button Content="Salvar outra cópia" Command="{x:Bind SaveAnotherCopyCommand}" MinHeight="40"
                                                 Visibility="{x:Bind SaveAnotherCopyVisibility, Mode=OneWay}"
                                                 AutomationProperties.Name="Salvar outra cópia" Padding="10,5" CornerRadius="6"
                                                 Background="{ThemeResource AppInputBrush}" Foreground="{ThemeResource AppTextBrush}"
@@ -226,8 +257,8 @@
                                 <TextBlock Text="Pasta de downloads" FontSize="10" Foreground="{ThemeResource AppSecondaryTextBrush}" />
                                 <TextBlock Text="{x:Bind ViewModel.DownloadFolder, Mode=OneWay}" ToolTipService.ToolTip="{x:Bind ViewModel.DownloadFolder, Mode=OneWay}" FontSize="11" Foreground="{ThemeResource AppTextBrush}" TextTrimming="CharacterEllipsis" />
                             </StackPanel>
-                            <Button Grid.Column="2" HorizontalAlignment="Stretch" Content="Mudar" Command="{x:Bind ViewModel.ChangeFolderCommand}" IsEnabled="{x:Bind ViewModel.CanChangeFolder, Mode=OneWay}" Background="{ThemeResource AppCardBrush}" Foreground="{ThemeResource AppTextBrush}" BorderBrush="{ThemeResource AppBorderBrush}" BorderThickness="1" CornerRadius="6" Padding="10,5" />
-                            <Button Grid.Column="3" HorizontalAlignment="Stretch" Height="36" Command="{x:Bind ViewModel.DownloadAllCommand}"
+                            <Button Grid.Column="2" HorizontalAlignment="Stretch" MinHeight="40" Content="Mudar" Command="{x:Bind ViewModel.ChangeFolderCommand}" IsEnabled="{x:Bind ViewModel.CanChangeFolder, Mode=OneWay}" Background="{ThemeResource AppCardBrush}" Foreground="{ThemeResource AppTextBrush}" BorderBrush="{ThemeResource AppBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="10,5" />
+                            <Button Grid.Column="3" HorizontalAlignment="Stretch" MinHeight="40" Command="{x:Bind ViewModel.DownloadAllCommand}"
                                     IsEnabled="{x:Bind ViewModel.CanStartDownloads, Mode=OneWay}" Visibility="{x:Bind ViewModel.IsNotDownloadingVisibility, Mode=OneWay}"
                                     Background="{ThemeResource AppAccentBrush}" Foreground="{ThemeResource AppAccentTextBrush}"
                                     CornerRadius="8" Padding="12,7" FontWeight="SemiBold">
@@ -236,7 +267,7 @@
                                     <TextBlock Text="{x:Bind ViewModel.DownloadButtonText, Mode=OneWay}" />
                                 </StackPanel>
                             </Button>
-                            <Button Grid.Column="3" HorizontalAlignment="Stretch" Height="36" Content="Parar downloads" Command="{x:Bind ViewModel.CancelAllCommand}"
+                            <Button Grid.Column="3" HorizontalAlignment="Stretch" MinHeight="40" Content="Parar downloads" Command="{x:Bind ViewModel.CancelAllCommand}"
                                     Visibility="{x:Bind ViewModel.IsDownloadingVisibility, Mode=OneWay}"
                                     Background="Transparent" Foreground="#EF4444" BorderThickness="0" CornerRadius="6" Padding="8,5" />
                         </Grid>

@@ -11,18 +11,17 @@ public sealed partial class MainWindow : Window
 {
     private const int PreferredWindowWidth = 1200;
     private const int PreferredWindowHeight = 800;
+    private const int MinimumWindowWidth = 800;
+    private const int MinimumWindowHeight = 560;
     private bool _navigationInitialized;
-    private bool _restoringWindow;
-    private Windows.Graphics.SizeInt32 _fixedWindowSize;
     private uint _configuredDpi;
-    private Windows.Graphics.RectInt32 _configuredWorkArea;
     private MainPage? _downloadPage;
 
     public MainWindow()
     {
         this.InitializeComponent();
         ExtendsContentIntoTitleBar = true;
-        ConfigureFixedWindow();
+        ConfigureWindow();
         AppWindow.Changed += AppWindow_Changed;
         RootFrame.Navigated += (_, args) =>
         {
@@ -35,59 +34,47 @@ public sealed partial class MainWindow : Window
         };
     }
 
-    private void ConfigureFixedWindow(bool center = true)
+    private void ConfigureWindow()
     {
         if (AppWindow.Presenter is not OverlappedPresenter presenter) return;
 
-        presenter.IsResizable = false;
-        presenter.IsMaximizable = false;
+        presenter.IsResizable = true;
+        presenter.IsMaximizable = true;
         presenter.IsMinimizable = true;
 
-        _configuredDpi = GetDpiForWindow(WinRT.Interop.WindowNative.GetWindowHandle(this));
-        var scale = Math.Max(1d, _configuredDpi / 96d);
+        var dpi = GetDpiForWindow(WinRT.Interop.WindowNative.GetWindowHandle(this));
+        var scale = dpi / 96d;
+        _configuredDpi = dpi;
+        SetPreferredMinimumSize(presenter, scale);
+        var minimumWidth = (int)Math.Round(MinimumWindowWidth * scale);
+        var minimumHeight = (int)Math.Round(MinimumWindowHeight * scale);
+
         var workArea = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Nearest).WorkArea;
-        _configuredWorkArea = workArea;
-        var margin = (int)Math.Ceiling(24 * scale);
-        _fixedWindowSize = new Windows.Graphics.SizeInt32(
-            Math.Min((int)Math.Round(PreferredWindowWidth * scale), Math.Max(1, workArea.Width - margin)),
-            Math.Min((int)Math.Round(PreferredWindowHeight * scale), Math.Max(1, workArea.Height - margin)));
-        AppWindow.Resize(_fixedWindowSize);
+        var margin = (int)Math.Ceiling(32 * scale);
+        var width = Math.Min((int)Math.Round(PreferredWindowWidth * scale), Math.Max(minimumWidth, workArea.Width - margin));
+        var height = Math.Min((int)Math.Round(PreferredWindowHeight * scale), Math.Max(minimumHeight, workArea.Height - margin));
+        AppWindow.Resize(new Windows.Graphics.SizeInt32(width, height));
         var size = AppWindow.Size;
-        if (center)
-            AppWindow.Move(new Windows.Graphics.PointInt32(
-                workArea.X + Math.Max(0, (workArea.Width - size.Width) / 2),
-                workArea.Y + Math.Max(0, (workArea.Height - size.Height) / 2)));
+        AppWindow.Move(new Windows.Graphics.PointInt32(
+            workArea.X + Math.Max(0, (workArea.Width - size.Width) / 2),
+            workArea.Y + Math.Max(0, (workArea.Height - size.Height) / 2)));
     }
 
     private void AppWindow_Changed(AppWindow sender, AppWindowChangedEventArgs args)
     {
-        if (_restoringWindow || sender.Presenter is not OverlappedPresenter presenter) return;
-        if (presenter.State == OverlappedPresenterState.Minimized) return;
         var dpi = GetDpiForWindow(WinRT.Interop.WindowNative.GetWindowHandle(this));
-        var area = DisplayArea.GetFromWindowId(sender.Id, DisplayAreaFallback.Nearest).WorkArea;
-        if (dpi != _configuredDpi || area.X != _configuredWorkArea.X || area.Y != _configuredWorkArea.Y
-            || area.Width != _configuredWorkArea.Width || area.Height != _configuredWorkArea.Height)
-        {
-            // Keep the same logical size when Windows moves the app to a different display scale.
-            _restoringWindow = true;
-            try { ConfigureFixedWindow(center: false); }
-            finally { _restoringWindow = false; }
+        if (dpi == _configuredDpi || sender.Presenter is not OverlappedPresenter presenter)
             return;
-        }
-        // Also cover title-bar double-click and OS shortcuts on older Windows App SDK builds.
-        var maximized = presenter.State == OverlappedPresenterState.Maximized;
-        var changedSize = args.DidSizeChange && presenter.State == OverlappedPresenterState.Restored
-            && (sender.Size.Width != _fixedWindowSize.Width || sender.Size.Height != _fixedWindowSize.Height);
-        if (maximized || changedSize)
-        {
-            _restoringWindow = true;
-            try
-            {
-                if (maximized) presenter.Restore();
-                sender.Resize(_fixedWindowSize);
-            }
-            finally { _restoringWindow = false; }
-        }
+
+        _configuredDpi = dpi;
+        SetPreferredMinimumSize(presenter, dpi / 96d);
+    }
+
+    private static void SetPreferredMinimumSize(OverlappedPresenter presenter, double scale)
+    {
+        // The presenter uses physical pixels; convert the minimum XAML size from DIPs.
+        presenter.PreferredMinimumWidth = (int)Math.Round(MinimumWindowWidth * scale);
+        presenter.PreferredMinimumHeight = (int)Math.Round(MinimumWindowHeight * scale);
     }
 
     [DllImport("user32.dll")]

@@ -10,7 +10,7 @@
 
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
     <Grid Margin="24,20">
-        <Grid MaxWidth="1080" HorizontalAlignment="Stretch" RowSpacing="20">
+        <Grid MaxWidth="1280" HorizontalAlignment="Stretch" RowSpacing="20">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -22,13 +22,33 @@
                            FontSize="14" Foreground="{ThemeResource AppSecondaryTextBrush}" />
             </StackPanel>
 
-            <Grid Grid.Row="1" ColumnSpacing="16" HorizontalAlignment="Stretch">
+            <Grid x:Name="SettingsCards" Grid.Row="1" ColumnSpacing="16" RowSpacing="16" HorizontalAlignment="Stretch">
+                <VisualStateManager.VisualStateGroups>
+                    <VisualStateGroup x:Name="SettingsWindowSizeStates">
+                        <VisualState x:Name="WideSettingsLayout">
+                            <VisualState.StateTriggers>
+                                <AdaptiveTrigger MinWindowWidth="1000" />
+                            </VisualState.StateTriggers>
+                            <VisualState.Setters>
+                                <Setter Target="AppearanceCard.(Grid.ColumnSpan)" Value="1" />
+                                <Setter Target="AboutCard.(Grid.Row)" Value="1" />
+                                <Setter Target="AboutCard.(Grid.Column)" Value="1" />
+                                <Setter Target="AboutCard.(Grid.ColumnSpan)" Value="1" />
+                            </VisualState.Setters>
+                        </VisualState>
+                    </VisualStateGroup>
+                </VisualStateManager.VisualStateGroups>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="2*" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
-                <Border Grid.Column="0" Background="{ThemeResource AppCardBrush}" BorderBrush="{ThemeResource AppBorderBrush}"
+                <Border x:Name="AppearanceCard" Grid.ColumnSpan="2" Background="{ThemeResource AppCardBrush}" BorderBrush="{ThemeResource AppBorderBrush}"
                         BorderThickness="1" CornerRadius="8" Padding="20">
                     <StackPanel Spacing="20">
                         <TextBlock Text="Aparência" FontSize="17" FontWeight="SemiBold" Foreground="{ThemeResource AppTextBrush}" />
@@ -51,7 +71,7 @@
                                        FontSize="13" Foreground="{ThemeResource AppSecondaryTextBrush}" TextWrapping="Wrap" />
                             <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
                                 <Button x:Name="CheckAppUpdateButton" Content="Verificar atualização do GetIt"
-                                        Click="CheckAppUpdate_Click" MinWidth="220" />
+                                        Click="CheckAppUpdate_Click" MinWidth="220" MinHeight="40" />
                                 <ProgressRing x:Name="AppUpdateProgressRing" Width="20" Height="20" IsActive="False"
                                               Visibility="Collapsed" />
                             </StackPanel>
@@ -62,19 +82,19 @@
                             </StackPanel>
                             <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
                                 <Button x:Name="UpdateButton" Content="Verificar versão do yt-dlp"
-                                        Click="UpdateYtDlp_Click" />
+                                        Click="UpdateYtDlp_Click" MinHeight="40" />
                                 <ProgressRing x:Name="UpdateProgressRing" Width="20" Height="20" IsActive="False"
                                               Visibility="Collapsed" />
                             </StackPanel>
                             <Button x:Name="InstallYtDlpUpdateButton" Content="Atualizar yt-dlp" Click="InstallYtDlpUpdate_Click"
-                                    Visibility="Collapsed" HorizontalAlignment="Left" Background="{ThemeResource AppAccentBrush}"
+                                    Visibility="Collapsed" MinHeight="40" HorizontalAlignment="Left" Background="{ThemeResource AppAccentBrush}"
                                     Foreground="{ThemeResource AppAccentTextBrush}" />
                             <InfoBar x:Name="UpdateStatusInfoBar" IsOpen="False" IsClosable="False" />
                         </StackPanel>
                     </StackPanel>
                 </Border>
 
-                <Border Grid.Column="1" Background="{ThemeResource AppCardBrush}" BorderBrush="{ThemeResource AppBorderBrush}"
+                <Border x:Name="AboutCard" Grid.Row="1" Grid.ColumnSpan="2" Background="{ThemeResource AppCardBrush}" BorderBrush="{ThemeResource AppBorderBrush}"
                         BorderThickness="1" CornerRadius="8" Padding="20">
                     <StackPanel Spacing="12">
                         <TextBlock Text="Sobre" FontSize="17" FontWeight="SemiBold" Foreground="{ThemeResource AppTextBrush}" />

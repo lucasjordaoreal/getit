@@ -108,12 +108,16 @@ internal static class LayoutRegressionProbe
             Bounds? footerBaseline = null;
             foreach (var titleLength in new[] { 1, 512, 2048 })
             {
-                item.Metadata = new VideoMetadata { Id = "synthetic", Title = new string('W', titleLength), Thumbnail = string.Empty };
                 item.StatusMessage = new string('S', 3000);
                 item.Speed = "123.45 MB/s";
                 item.Eta = "12:34:56";
-                foreach (var state in new[] { "completed", "pending", "downloading" })
+                foreach (var state in new[] { "completed", "pending", "downloading", "analysis-error", "download-error", "download-conflict" })
                 {
+                    item.Metadata = state == "analysis-error" ? null
+                        : new VideoMetadata { Id = "synthetic", Title = new string('W', titleLength), Thumbnail = string.Empty };
+                    item.IsError = state is "analysis-error" or "download-error" or "download-conflict";
+                    item.HasFileConflict = state == "download-conflict";
+                    item.DownloadedFolderPath = @"C:\GetIt-layout-probe";
                     viewModel.IsDownloadingAll = false;
                     item.IsDownloading = false;
                     item.IsQueueLocked = false;
@@ -135,6 +139,9 @@ internal static class LayoutRegressionProbe
                     {
                         ("another-format", item.PrepareAnotherDownloadCommand, state == "completed"),
                         ("show-in-folder", item.OpenLocationCommand, state == "completed"),
+                        ("retry-analysis", item.RetryAnalysisCommand, state == "analysis-error"),
+                        ("retry-download", item.RetryDownloadCommand, state == "download-error"),
+                        ("save-another-copy", item.SaveAnotherCopyCommand, state == "download-conflict"),
                         ("remove", item.RemoveCommand, true)
                     };
                     foreach (var action in actions)
@@ -180,9 +187,11 @@ internal static class LayoutRegressionProbe
             {
                 report.Window = new WindowRules(presenter.IsResizable, presenter.IsMaximizable, presenter.IsMinimizable,
                     window.AppWindow.ClientSize.Width, window.AppWindow.ClientSize.Height);
-                report.Check("window/cannot-resize", !presenter.IsResizable);
-                report.Check("window/cannot-maximize", !presenter.IsMaximizable);
+                report.Check("window/can-resize", presenter.IsResizable);
+                report.Check("window/can-maximize", presenter.IsMaximizable);
                 report.Check("window/can-minimize", presenter.IsMinimizable);
+                report.Check("window/minimum-size-configured",
+                    presenter.PreferredMinimumWidth >= 700 && presenter.PreferredMinimumHeight >= 500);
             }
             else report.Check("window/overlapped-presenter", false);
         }
