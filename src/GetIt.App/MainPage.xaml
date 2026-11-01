@@ -94,6 +94,9 @@
             </Border>
 
             <StackPanel Grid.Row="2" Spacing="6">
+                <TextBlock Text="{x:Bind ViewModel.EngineStatusMessage, Mode=OneWay}"
+                           Visibility="{x:Bind ViewModel.EngineStatusVisibility, Mode=OneWay}"
+                           TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource AppErrorBrush}" />
                 <TextBlock Text="{x:Bind ViewModel.InputError, Mode=OneWay}" TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource AppErrorBrush}" />
                 <ToggleSwitch IsOn="{x:Bind ViewModel.IsAutoPasteEnabled, Mode=TwoWay}"
                               Header="Preencher com links copiados do YouTube" OffContent="Desativado"

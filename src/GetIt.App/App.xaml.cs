@@ -64,13 +64,22 @@ public partial class App : Application
         var settings = SettingsService.LoadSettings();
         if (settings.IsYtDlpAutoUpdateEnabled)
         {
-            _ = Task.Run(async () =>
-            {
-                var updater = new YtDlpUpdateService();
-                await updater.UpdateAsync();
-            });
+            _ = Task.Run(RunYtDlpAutoUpdateAsync);
         }
 
+    }
+
+    private static async Task RunYtDlpAutoUpdateAsync()
+    {
+        try
+        {
+            var updater = new YtDlpUpdateService();
+            await updater.UpdateAsync();
+        }
+        catch (Exception exception)
+        {
+            AppLogger.LogException(exception, "Automatic yt-dlp update failed");
+        }
     }
 
     internal static void OnMainWindowReady()

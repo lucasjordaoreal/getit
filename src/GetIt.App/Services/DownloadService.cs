@@ -18,7 +18,12 @@ public interface IDownloadService
     Task<string?> DownloadAsync(string url, string formatId, bool isAudioOnly, string audioFormat, string audioBitrate, string videoExt, string downloadDir, IProgress<DownloadProgressInfo> progress, CancellationToken cancellationToken = default, bool overwriteExistingFiles = false, string? titleHint = null);
 }
 
-public partial class DownloadService : IDownloadService
+public interface IDownloadEngineHealthProvider
+{
+    Task<string?> GetEngineProblemAsync(CancellationToken cancellationToken = default);
+}
+
+public partial class DownloadService : IDownloadService, IDownloadEngineHealthProvider
 {
     [GeneratedRegex(@"\[download\]\s+(?<percent>\d+\.\d+)%\s+of\s+.*?\s+at\s+(?<speed>.*?)\s+ETA\s+(?<eta>.*)")]
     private static partial Regex ProgressDetailedRegex();
@@ -84,51 +89,8 @@ public partial class DownloadService : IDownloadService
         catch (OperationCanceledException) { AppLogger.LogWarning("Media process did not exit within the cancellation timeout."); }
     }
 
-    private readonly string _binPath;
-    private readonly string _ytdlpPath;
-    private readonly string _ffmpegPath;
-
-    private static string GetSafeExecutablePath(string candidateDirectory, string executableName)
-    {
-        if (string.IsNullOrWhiteSpace(candidateDirectory))
-        {
-            return string.Empty;
-        }
-
-        try
-        {
-            var fullDirectory = Path.GetFullPath(candidateDirectory);
-            var candidatePath = Path.Combine(fullDirectory, executableName);
-            if (File.Exists(candidatePath))
-            {
-                return candidatePath;
-            }
-        }
-        catch (Exception ex)
-        {
-            AppLogger.LogException(ex, $"Failed to resolve executable candidate for {executableName}");
-        }
-
-        return string.Empty;
-    }
-
-    private static bool IsExecutableAvailable(string executablePath)
-    {
-        if (string.IsNullOrWhiteSpace(executablePath))
-        {
-            return false;
-        }
-
-        try
-        {
-            return File.Exists(executablePath);
-        }
-        catch (Exception ex)
-        {
-            AppLogger.LogException(ex, $"Failed to check existence of executable: {executablePath}");
-            return false;
-        }
-    }
+    private static string EngineBinPath => ResolveBinPath();
+    private static string FfmpegPath => Path.Combine(EngineBinPath, "ffmpeg.exe");
 
     private static string NormalizePath(string? path)
     {
@@ -236,7 +198,7 @@ public partial class DownloadService : IDownloadService
             || (deviceName.Length == 4 && (deviceName.StartsWith("COM", StringComparison.Ordinal) || deviceName.StartsWith("LPT", StringComparison.Ordinal))
                 && deviceName[3] is >= '1' and <= '9')) targetName = "_" + targetName;
         var target = Path.Combine(downloadDir, targetName + ".mov");
-        var converter = new FfmpegVideoConverter(_ffmpegPath);
+        var converter = new FfmpegVideoConverter(FfmpegPath);
         var conversionProgress = new Progress<VideoConversionProgress>(update => progress?.Report(new DownloadProgressInfo
         {
             Percentage = update.Percentage,
@@ -299,8 +261,7 @@ public partial class DownloadService : IDownloadService
 
     private async Task<(bool Video, bool Audio)> ReadMediaTracksAsync(string path, CancellationToken cancellationToken)
     {
-        var ffprobe = Path.Combine(_binPath, "ffprobe.exe");
-        if (!File.Exists(ffprobe)) throw new FileNotFoundException("ffprobe.exe não foi encontrado na pasta de componentes do GetIt.", ffprobe);
+        var ffprobe = Path.Combine(EngineBinPath, "ffprobe.exe");
         var start = new ProcessStartInfo(ffprobe)
         {
             UseShellExecute = false,
@@ -345,44 +306,48 @@ public partial class DownloadService : IDownloadService
     public static string ResolveBinPath()
     {
         var envPath = Environment.GetEnvironmentVariable("GETIT_ENGINE_BIN");
-        if (!string.IsNullOrEmpty(envPath) && Directory.Exists(envPath) && File.Exists(Path.Combine(envPath, "yt-dlp.exe")))
+        if (!string.IsNullOrWhiteSpace(envPath))
         {
-            return envPath;
+            try
+            {
+                return Path.GetFullPath(envPath);
+            }
+            catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+            {
+                AppLogger.LogException(ex, "GETIT_ENGINE_BIN is not a valid path");
+            }
         }
 
         var baseDir = AppContext.BaseDirectory;
-        var directEngineBin = Path.Combine(baseDir, "Engine", "Bin");
-        if (Directory.Exists(directEngineBin) && File.Exists(Path.Combine(directEngineBin, "yt-dlp.exe")))
+        var candidates = new List<string>
         {
-            return directEngineBin;
-        }
-
-        var directBin = Path.Combine(baseDir, "Bin");
-        if (Directory.Exists(directBin) && File.Exists(Path.Combine(directBin, "yt-dlp.exe")))
-        {
-            return directBin;
-        }
-
-        if (File.Exists(Path.Combine(baseDir, "yt-dlp.exe")))
-        {
-            return baseDir;
-        }
-
+            Path.Combine(baseDir, "Engine", "Bin"),
+            Path.Combine(baseDir, "Bin"),
+            baseDir
+        };
         var dirInfo = new DirectoryInfo(baseDir);
         while (dirInfo != null)
         {
-            var candidate = Path.Combine(dirInfo.FullName, "Engine", "Bin");
-            if (Directory.Exists(candidate) && File.Exists(Path.Combine(candidate, "yt-dlp.exe")))
-            {
-                return candidate;
-            }
+            candidates.Add(Path.Combine(dirInfo.FullName, "Engine", "Bin"));
             dirInfo = dirInfo.Parent;
         }
 
-        var cwdCandidate = Path.Combine(Directory.GetCurrentDirectory(), "Engine", "Bin");
-        if (Directory.Exists(cwdCandidate) && File.Exists(Path.Combine(cwdCandidate, "yt-dlp.exe")))
+        candidates.Add(Path.Combine(Directory.GetCurrentDirectory(), "Engine", "Bin"));
+        var availableDirectory = candidates
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Select((path, index) => new
+            {
+                Path = path,
+                Index = index,
+                Score = Directory.Exists(path) ? GetEngineComponentScore(path) : -1
+            })
+            .Where(candidate => candidate.Score >= 0)
+            .OrderByDescending(candidate => candidate.Score)
+            .ThenBy(candidate => candidate.Index)
+            .FirstOrDefault();
+        if (availableDirectory is not null)
         {
-            return cwdCandidate;
+            return availableDirectory.Path;
         }
 
         return Path.Combine(baseDir, "Engine", "Bin");
@@ -390,40 +355,103 @@ public partial class DownloadService : IDownloadService
 
     public DownloadService()
     {
-        var resolvedBin = ResolveBinPath();
-        var ytdlpPath = GetSafeExecutablePath(resolvedBin, "yt-dlp.exe");
-        var ffmpegPath = GetSafeExecutablePath(resolvedBin, "ffmpeg.exe");
+    }
 
-        if (!IsExecutableAvailable(ytdlpPath))
+    private static int GetEngineComponentScore(string directory)
+    {
+        var score = 0;
+        foreach (var component in new[] { "yt-dlp.exe", "ffmpeg.exe", "ffprobe.exe" })
         {
-            throw new FileNotFoundException("yt-dlp.exe não foi encontrado. Verifique a pasta de engine do aplicativo.", "yt-dlp.exe");
+            if (File.Exists(Path.Combine(directory, component)))
+            {
+                score += component == "yt-dlp.exe" ? 5 : 2;
+            }
         }
 
-        if (!IsExecutableAvailable(ffmpegPath))
+        return score;
+    }
+
+    public async Task<string?> GetEngineProblemAsync(CancellationToken cancellationToken = default)
+    {
+        var issues = await CheckEngineAsync(
+            includeFfmpeg: true,
+            includeFfprobe: true,
+            cancellationToken: cancellationToken);
+        return issues.Count == 0 ? null : FormatEngineIssues(issues);
+    }
+
+    private async Task EnsureEngineAvailableAsync(bool includeFfprobe, CancellationToken cancellationToken)
+    {
+        var issues = await CheckEngineAsync(
+            includeFfmpeg: true,
+            includeFfprobe: includeFfprobe,
+            cancellationToken: cancellationToken);
+        if (issues.Count > 0)
         {
-            throw new FileNotFoundException("ffmpeg.exe não foi encontrado. Verifique a pasta de engine do aplicativo.", "ffmpeg.exe");
+            throw new InvalidOperationException(FormatEngineIssues(issues));
+        }
+    }
+
+    private static async Task<IReadOnlyList<DownloadEngineIssue>> CheckEngineAsync(
+        bool includeFfmpeg,
+        bool includeFfprobe,
+        CancellationToken cancellationToken)
+    {
+        var binPath = EngineBinPath;
+        var components = new List<(string Name, string[] Arguments)> { ("yt-dlp.exe", ["--version"]) };
+        if (includeFfmpeg)
+        {
+            components.Add(("ffmpeg.exe", ["-version"]));
+        }
+        if (includeFfprobe)
+        {
+            components.Add(("ffprobe.exe", ["-version"]));
         }
 
-        _binPath = resolvedBin;
-        _ytdlpPath = ytdlpPath;
-        _ffmpegPath = ffmpegPath;
+        var issues = new List<DownloadEngineIssue>();
+        foreach (var (name, arguments) in components)
+        {
+            var issue = await DownloadEngineHealthCheck.CheckExecutableAsync(
+                name,
+                Path.Combine(binPath, name),
+                arguments,
+                cancellationToken);
+            if (issue is not null)
+            {
+                issues.Add(issue);
+            }
+        }
+
+        return issues;
+    }
+
+    private static string FormatEngineIssues(IReadOnlyList<DownloadEngineIssue> issues)
+    {
+        if (issues.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        var details = string.Join(Environment.NewLine, issues.Select(issue =>
+            $"{issue.Component}: {issue.Reason} ({issue.Path})"));
+        return $"A engine de download está indisponível:{Environment.NewLine}{details}{Environment.NewLine}" +
+            $"Coloque os executáveis em Engine\\Bin na pasta do aplicativo ou configure GETIT_ENGINE_BIN. " +
+            "Depois, tente novamente; não é necessário reinstalar ou reiniciar o GetIt.";
     }
 
     private ProcessStartInfo CreateProcessStartInfo(IEnumerable<string> arguments)
     {
-        if (!IsExecutableAvailable(_ytdlpPath))
-        {
-            throw new FileNotFoundException("O executável yt-dlp.exe não está disponível para iniciar o download.", _ytdlpPath);
-        }
+        var binPath = EngineBinPath;
+        var ytdlpPath = Path.Combine(binPath, "yt-dlp.exe");
 
         var psi = new ProcessStartInfo
         {
-            FileName = _ytdlpPath,
+            FileName = ytdlpPath,
             UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             CreateNoWindow = true,
-            WorkingDirectory = _binPath,
+            WorkingDirectory = binPath,
             StandardOutputEncoding = System.Text.Encoding.UTF8,
             StandardErrorEncoding = System.Text.Encoding.UTF8
         };
@@ -433,9 +461,7 @@ public partial class DownloadService : IDownloadService
         psi.Environment["PYTHONUTF8"] = "1";
         // Add bin path to PATH so yt-dlp can find node.exe or deno.exe
         var currentPath = Environment.GetEnvironmentVariable("PATH") ?? string.Empty;
-        psi.Environment["PATH"] = string.IsNullOrWhiteSpace(_binPath)
-            ? currentPath
-            : _binPath + ";" + currentPath;
+        psi.Environment["PATH"] = binPath + ";" + currentPath;
         return psi;
     }
 
@@ -445,6 +471,14 @@ public partial class DownloadService : IDownloadService
         await MetadataSlots.WaitAsync(cancellationToken);
         try
         {
+            var issues = await CheckEngineAsync(
+                includeFfmpeg: false,
+                includeFfprobe: false,
+                cancellationToken: cancellationToken);
+            if (issues.Count > 0)
+            {
+                throw new InvalidOperationException(FormatEngineIssues(issues));
+            }
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeout.CancelAfter(TimeSpan.FromSeconds(90));
             var processStartInfo = CreateProcessStartInfo(new[]
@@ -498,11 +532,13 @@ public partial class DownloadService : IDownloadService
             throw new ArgumentOutOfRangeException(nameof(audioFormat), audioFormat, "Formato de áudio não suportado.");
         }
 
+        var targetExtension = isAudioOnly ? normalizedAudioFormat : (string.IsNullOrWhiteSpace(videoExt) ? "mp4" : videoExt.TrimStart('.'));
+        var convertMov = !isAudioOnly && targetExtension.Equals("mov", StringComparison.OrdinalIgnoreCase);
+        await EnsureEngineAvailableAsync(convertMov, cancellationToken);
+
         ValidateDownloadDirectory(downloadDir);
         downloadDir = Path.GetFullPath(downloadDir);
 
-        string targetExtension = isAudioOnly ? normalizedAudioFormat : (string.IsNullOrWhiteSpace(videoExt) ? "mp4" : videoExt.TrimStart('.'));
-        var convertMov = !isAudioOnly && targetExtension.Equals("mov", StringComparison.OrdinalIgnoreCase);
         string expectedPath = GetFallbackTargetPath(downloadDir, targetExtension, titleHint);
 
         if (File.Exists(expectedPath) && !overwriteExistingFiles)
@@ -517,7 +553,7 @@ public partial class DownloadService : IDownloadService
         {
             "--ignore-config", "--force-ipv4", "--no-playlist", "--playlist-items", "1",
             "--socket-timeout", "30", "--retries", "3", "--fragment-retries", "3",
-            "--ffmpeg-location", _ffmpegPath, "--encoding", "UTF-8", "--windows-filenames", "--trim-filenames", "180"
+            "--ffmpeg-location", FfmpegPath, "--encoding", "UTF-8", "--windows-filenames", "--trim-filenames", "180"
         };
         if (isAudioOnly)
         {

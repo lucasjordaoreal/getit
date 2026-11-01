@@ -66,6 +66,10 @@ public partial class MainPageViewModel : ObservableObject
     [ObservableProperty]
     public partial string InputError { get; set; } = string.Empty;
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(EngineStatusVisibility))]
+    public partial string EngineStatusMessage { get; set; } = string.Empty;
+
     public bool CanAddUrl => !_isShuttingDown && !IsDownloadingAll && !string.IsNullOrWhiteSpace(Url);
     public bool CanStartDownloads => !_isShuttingDown && !IsDownloadingAll &&
         DownloadQueue.Any(item => item.HasMetadata && !item.IsDownloadComplete && !item.IsDownloading) &&
@@ -78,6 +82,7 @@ public partial class MainPageViewModel : ObservableObject
     public Visibility IsNotDownloadingVisibility => IsDownloadingAll ? Visibility.Collapsed : Visibility.Visible;
     public Visibility HasItemsVisibility => DownloadQueue.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
     public Visibility IsQueueEmptyVisibility => DownloadQueue.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility EngineStatusVisibility => string.IsNullOrWhiteSpace(EngineStatusMessage) ? Visibility.Collapsed : Visibility.Visible;
     public string DownloadButtonText => IsDownloadingAll ? "Baixando…" : DownloadQueue.Count > 1 ? "Baixar fila" : "Baixar";
 
     public string QueueSummary
@@ -119,6 +124,23 @@ public partial class MainPageViewModel : ObservableObject
             : settings.LastDownloadFolder;
         IsAutoPasteEnabled = settings.IsAutoPasteEnabled;
         _isInitializing = false;
+        if (_downloadService is IDownloadEngineHealthProvider engineHealthProvider)
+        {
+            _ = CheckEngineHealthAsync(engineHealthProvider);
+        }
+    }
+
+    private async Task CheckEngineHealthAsync(IDownloadEngineHealthProvider engineHealthProvider)
+    {
+        try
+        {
+            EngineStatusMessage = await engineHealthProvider.GetEngineProblemAsync() ?? string.Empty;
+        }
+        catch (Exception exception)
+        {
+            AppLogger.LogException(exception, "Could not check the download engine at startup");
+            EngineStatusMessage = "Não foi possível verificar a engine de download. Confira se yt-dlp.exe, ffmpeg.exe e ffprobe.exe estão em Engine\\Bin e tente novamente.";
+        }
     }
 
     public void ActivateClipboardMonitoring()
@@ -201,7 +223,16 @@ public partial class MainPageViewModel : ObservableObject
         var item = new DownloadItemViewModel(link, _downloadService);
         item.OnRemoveRequested = i => DownloadQueue.Remove(i);
         DownloadQueue.Add(item);
-        _ = item.FetchMetadataAsync();
+        _ = FetchMetadataAndRefreshEngineAsync(item);
+    }
+
+    private async Task FetchMetadataAndRefreshEngineAsync(DownloadItemViewModel item)
+    {
+        await item.FetchMetadataAsync();
+        if (!_isShuttingDown && _downloadService is IDownloadEngineHealthProvider engineHealthProvider)
+        {
+            await CheckEngineHealthAsync(engineHealthProvider);
+        }
     }
 
     private void DownloadQueue_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)

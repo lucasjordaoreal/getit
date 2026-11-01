@@ -16,7 +16,7 @@ GetIt é um aplicativo Windows para download de mídia, com foco em confiabilida
 - .NET 8 SDK
 - Visual Studio 2022 ou Rider
 - Windows App SDK / WinUI 3 habilitados para o projeto
-- Engine yt-dlp disponível em `Engine/Bin` ou em ambiente de execução compatível
+- Engine yt-dlp, FFmpeg e FFprobe em `Engine/Bin` ou em um diretório configurado por `GETIT_ENGINE_BIN`. Se algum componente estiver ausente ou indisponível, o GetIt ainda abre e informa como corrigir a engine.
 
 ## Estrutura do repositório
 
