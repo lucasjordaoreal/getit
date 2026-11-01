@@ -7,6 +7,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using Windows.Storage.Pickers;
 
 namespace GetIt_App;
 
@@ -17,6 +18,7 @@ public sealed partial class SettingsPage : Page
     private YtDlpVersionStatus? _ytDlpStatus;
     private bool _isLoadingSettings = true;
     private bool _ytDlpBusy;
+    private bool _ffmpegBusy;
 
     public SettingsPage()
     {
@@ -39,6 +41,7 @@ public sealed partial class SettingsPage : Page
         AppAutoUpdateToggle.IsOn = settings.IsAppAutoUpdateEnabled;
         YtDlpAutoUpdateToggle.IsOn = settings.IsYtDlpAutoUpdateEnabled;
         RestoreQueueToggle.IsOn = settings.RestoreQueueOnStartup;
+        UpdateFfmpegFolderText(settings.FfmpegBinPath);
         AppVersionText.Text = $"GetIt {AppInfo.CurrentVersion.ToString(3)}";
         _isLoadingSettings = false;
         _pageLifetime?.Cancel();
@@ -111,6 +114,93 @@ public sealed partial class SettingsPage : Page
 
     private void PersistenceStatusInfoBar_Closed(InfoBar sender, InfoBarClosedEventArgs args) =>
         SettingsService.AcknowledgeLoadWarning();
+
+    private async void SelectFfmpegFolder_Click(object sender, RoutedEventArgs e)
+    {
+        if (_ffmpegBusy) return;
+
+        var picker = new FolderPicker
+        {
+            SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.Downloads
+        };
+        picker.FileTypeFilter.Add("*");
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, App.WindowHandle);
+
+        try
+        {
+            var folder = await picker.PickSingleFolderAsync();
+            if (folder is null) return;
+
+            SetFfmpegBusy(true);
+            FfmpegSettingsInfoBar.IsOpen = false;
+            FfmpegSettingsInfoBar.Severity = InfoBarSeverity.Informational;
+            FfmpegSettingsInfoBar.Message = "Verificando versões e encoders necessários…";
+            FfmpegSettingsInfoBar.IsOpen = true;
+
+            var issues = await FfmpegEngineValidator.ValidateDirectoryAsync(
+                folder.Path, _pageLifetime?.Token ?? CancellationToken.None);
+            if (issues.Count > 0)
+            {
+                FfmpegSettingsInfoBar.Severity = InfoBarSeverity.Error;
+                FfmpegSettingsInfoBar.Message = string.Join(
+                    Environment.NewLine, issues.Select(issue => $"{issue.Component}: {issue.Reason} ({issue.Path})"));
+                return;
+            }
+
+            var fullPath = Path.GetFullPath(folder.Path);
+            SettingsService.UpdateSettings(settings => settings.FfmpegBinPath = fullPath);
+            UpdateFfmpegFolderText(fullPath);
+            FfmpegSettingsInfoBar.Severity = InfoBarSeverity.Success;
+            FfmpegSettingsInfoBar.Message = "FFmpeg e FFprobe foram validados e a configuração foi salva.";
+        }
+        catch (OperationCanceledException) when (_pageLifetime?.IsCancellationRequested == true) { }
+        catch (Exception exception)
+        {
+            AppLogger.LogException(exception, "Could not configure external FFmpeg");
+            FfmpegSettingsInfoBar.Severity = InfoBarSeverity.Error;
+            FfmpegSettingsInfoBar.Message = $"Não foi possível configurar FFmpeg/FFprobe: {exception.Message}";
+        }
+        finally
+        {
+            SetFfmpegBusy(false);
+        }
+    }
+
+    private void ResetFfmpegFolder_Click(object sender, RoutedEventArgs e)
+    {
+        if (_ffmpegBusy) return;
+        try
+        {
+            SettingsService.UpdateSettings(settings => settings.FfmpegBinPath = string.Empty);
+            UpdateFfmpegFolderText(string.Empty);
+            FfmpegSettingsInfoBar.Severity = InfoBarSeverity.Informational;
+            FfmpegSettingsInfoBar.Message = "A configuração personalizada foi removida. O GetIt voltará a procurar a engine nos locais automáticos.";
+            FfmpegSettingsInfoBar.IsOpen = true;
+        }
+        catch (Exception exception)
+        {
+            AppLogger.LogException(exception, "Could not reset external FFmpeg configuration");
+            FfmpegSettingsInfoBar.Severity = InfoBarSeverity.Error;
+            FfmpegSettingsInfoBar.Message = $"Não foi possível salvar a configuração: {exception.Message}";
+            FfmpegSettingsInfoBar.IsOpen = true;
+        }
+    }
+
+    private void UpdateFfmpegFolderText(string configuredPath)
+    {
+        FfmpegFolderText.Text = string.IsNullOrWhiteSpace(configuredPath)
+            ? "Pasta configurada: automática (Engine\\Bin ou GETIT_ENGINE_BIN)"
+            : $"Pasta configurada: {configuredPath}";
+    }
+
+    private void SetFfmpegBusy(bool busy)
+    {
+        _ffmpegBusy = busy;
+        SelectFfmpegFolderButton.IsEnabled = !busy;
+        ResetFfmpegFolderButton.IsEnabled = !busy;
+        FfmpegProgressRing.IsActive = busy;
+        FfmpegProgressRing.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
+    }
 
     private void OpenThirdPartyLicenses_Click(object sender, RoutedEventArgs e)
     {

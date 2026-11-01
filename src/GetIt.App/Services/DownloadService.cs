@@ -101,7 +101,29 @@ public partial class DownloadService : IDownloadService, IDownloadEngineHealthPr
     }
 
     private static string EngineBinPath => ResolveBinPath();
-    private static string FfmpegPath => Path.Combine(EngineBinPath, "ffmpeg.exe");
+    private static string FfmpegBinPath
+    {
+        get
+        {
+            var configuredPath = SettingsService.LoadSettings().FfmpegBinPath;
+            if (string.IsNullOrWhiteSpace(configuredPath))
+            {
+                return ResolveBinPath();
+            }
+
+            try
+            {
+                return Path.GetFullPath(configuredPath);
+            }
+            catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)
+            {
+                AppLogger.LogException(exception, "Configured FFmpeg folder is not a valid path");
+                return configuredPath;
+            }
+        }
+    }
+
+    private static string FfmpegPath => Path.Combine(FfmpegBinPath, "ffmpeg.exe");
 
     private static string NormalizePath(string? path)
     {
@@ -272,7 +294,7 @@ public partial class DownloadService : IDownloadService, IDownloadEngineHealthPr
 
     private async Task<(bool Video, bool Audio)> ReadMediaTracksAsync(string path, CancellationToken cancellationToken)
     {
-        var ffprobe = Path.Combine(EngineBinPath, "ffprobe.exe");
+        var ffprobe = Path.Combine(FfmpegBinPath, "ffprobe.exe");
         var start = new ProcessStartInfo(ffprobe)
         {
             UseShellExecute = false,
@@ -408,29 +430,27 @@ public partial class DownloadService : IDownloadService, IDownloadEngineHealthPr
         bool includeFfprobe,
         CancellationToken cancellationToken)
     {
-        var binPath = EngineBinPath;
-        var components = new List<(string Name, string[] Arguments)> { ("yt-dlp.exe", ["--version"]) };
-        if (includeFfmpeg)
+        var components = new List<(string Name, string Path, string[] Arguments)>
         {
-            components.Add(("ffmpeg.exe", ["-version"]));
-        }
-        if (includeFfprobe)
-        {
-            components.Add(("ffprobe.exe", ["-version"]));
-        }
-
+            ("yt-dlp.exe", Path.Combine(EngineBinPath, "yt-dlp.exe"), ["--version"])
+        };
         var issues = new List<DownloadEngineIssue>();
-        foreach (var (name, arguments) in components)
+        foreach (var (name, path, arguments) in components)
         {
             var issue = await DownloadEngineHealthCheck.CheckExecutableAsync(
                 name,
-                Path.Combine(binPath, name),
+                path,
                 arguments,
                 cancellationToken);
             if (issue is not null)
             {
                 issues.Add(issue);
             }
+        }
+
+        if (includeFfmpeg || includeFfprobe)
+        {
+            issues.AddRange(await FfmpegEngineValidator.ValidateDirectoryAsync(FfmpegBinPath, cancellationToken));
         }
 
         return issues;
@@ -445,15 +465,16 @@ public partial class DownloadService : IDownloadService, IDownloadEngineHealthPr
 
         var details = string.Join(Environment.NewLine, issues.Select(issue =>
             $"{issue.Component}: {issue.Reason} ({issue.Path})"));
-        return $"A engine de download está indisponível:{Environment.NewLine}{details}{Environment.NewLine}" +
-            $"Coloque os executáveis em Engine\\Bin na pasta do aplicativo ou configure GETIT_ENGINE_BIN. " +
-            "Depois, tente novamente; não é necessário reinstalar ou reiniciar o GetIt.";
+        return $"A engine de download/mídia está indisponível:{Environment.NewLine}{details}{Environment.NewLine}" +
+            "Confira yt-dlp.exe em Engine\\Bin e configure uma pasta compatível de FFmpeg/FFprobe em Configurações > Engine de mídia. " +
+            "O GetIt não baixa esses executáveis.";
     }
 
     private ProcessStartInfo CreateProcessStartInfo(IEnumerable<string> arguments)
     {
         var binPath = EngineBinPath;
         var ytdlpPath = Path.Combine(binPath, "yt-dlp.exe");
+        var ffmpegBinPath = FfmpegBinPath;
 
         var psi = new ProcessStartInfo
         {
@@ -472,7 +493,9 @@ public partial class DownloadService : IDownloadService, IDownloadEngineHealthPr
         psi.Environment["PYTHONUTF8"] = "1";
         // Add bin path to PATH so yt-dlp can find node.exe or deno.exe
         var currentPath = Environment.GetEnvironmentVariable("PATH") ?? string.Empty;
-        psi.Environment["PATH"] = binPath + ";" + currentPath;
+        psi.Environment["PATH"] = string.Join(";", new[] { binPath, ffmpegBinPath, currentPath }
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .Distinct(StringComparer.OrdinalIgnoreCase));
         return psi;
     }
 

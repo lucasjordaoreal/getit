@@ -82,6 +82,38 @@ public sealed class DownloadEngineHealthCheckTests
         Assert.Contains("código 7", issue.Reason);
     }
 
+    [Fact]
+    public async Task FfmpegEngineValidator_ReportsMissingExecutables()
+    {
+        using var directory = new TemporaryDirectory();
+
+        var issues = await FfmpegEngineValidator.ValidateDirectoryAsync(directory.Path);
+
+        Assert.Collection(
+            issues,
+            issue =>
+            {
+                Assert.Equal("ffmpeg.exe", issue.Component);
+                Assert.Contains("não foi encontrado", issue.Reason);
+            },
+            issue =>
+            {
+                Assert.Equal("ffprobe.exe", issue.Component);
+                Assert.Contains("não foi encontrado", issue.Reason);
+            });
+    }
+
+    [Theory]
+    [InlineData("ffmpeg version 8.1.1-full_build-www.gyan.dev", 8, 1, 1)]
+    [InlineData("ffmpeg version n8.1.3-27-g8dca1586f4-20261031", 8, 1, 3)]
+    public void FfmpegEngineValidator_ParsesVendorAndGitVersionStrings(
+        string banner, int major, int minor, int build)
+    {
+        var version = FfmpegEngineValidator.ParseVersion(banner);
+
+        Assert.Equal(new Version(major, minor, build), version);
+    }
+
     private sealed class TemporaryDirectory : IDisposable
     {
         public string Path { get; } = System.IO.Path.Combine(

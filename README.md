@@ -18,7 +18,7 @@ GetIt é um aplicativo Windows para download de mídia, com foco em confiabilida
 - .NET 10 LTS SDK
 - Visual Studio 2022 ou Rider
 - Windows App SDK / WinUI 3 habilitados para o projeto
-- Engine yt-dlp, FFmpeg e FFprobe em `tools/Engine/Bin` durante o desenvolvimento (copiados para `Engine/Bin` na publicação) ou em um diretório configurado por `GETIT_ENGINE_BIN`. Os binários não são versionados; o script do instalador interrompe a geração se os componentes obrigatórios estiverem ausentes.
+- Engine `yt-dlp.exe` e `deno.exe` em `tools/Engine/Bin` durante o desenvolvimento. FFmpeg e FFprobe são dependências externas: escolha uma pasta com os dois executáveis em **Configurações > Engine de mídia** ou use `GETIT_ENGINE_BIN` para a descoberta automática. O GetIt não baixa nem atualiza FFmpeg.
 
 ## Estrutura do repositório
 
@@ -52,7 +52,8 @@ GetIt/
 1. Clone o repositório.
 2. Abra a solução `GetIt.sln` no Visual Studio ou Rider.
 3. Restore as dependências com `dotnet restore GetIt.sln -p:Platform=x64`.
-4. Se necessário, valide a engine externa em `tools/Engine/Bin`.
+4. Disponibilize `yt-dlp.exe` e `deno.exe` em `tools/Engine/Bin`.
+5. Instale FFmpeg/FFprobe de uma fonte confiável e configure a pasta em **Configurações > Engine de mídia**; a validação verifica versões e os encoders exigidos pelo GetIt.
 
 ## Compilação
 
@@ -78,16 +79,16 @@ A solução está preparada para builds reproducíveis com suporte a publicaçã
 - testes
 - validação de formatação estática
 
-Para empacotamento e distribuição, `deploy/installer/` contém os scripts do instalador. Os binários da engine não são incluídos no repositório, portanto um clone limpo precisa recebê-los separadamente antes do empacotamento.
+Para empacotamento e distribuição, `deploy/installer/` contém os scripts do instalador. Os binários da engine não são incluídos no repositório, portanto um clone limpo precisa receber `yt-dlp.exe` e `deno.exe` separadamente. A publicação inclui apenas esses dois executáveis: FFmpeg, FFprobe, FFplay e Node.js são excluídos. O script valida a ausência dos executáveis excluídos e exige os avisos/licenças de todos os componentes incluídos.
 
-Os avisos e textos de licença dos componentes distribuídos ficam em `licenses/` e são copiados para `Licenses/` na publicação; a página **Configurações > Sobre** abre essa pasta. O script do instalador exige o pacote de fontes correspondente, seu SHA-256 e um registro de revisão em `bin/ThirdPartySources/`. Consulte [`licenses/THIRD_PARTY_NOTICES.md`](licenses/THIRD_PARTY_NOTICES.md) e [`licenses/THIRD_PARTY_SOURCES.md`](licenses/THIRD_PARTY_SOURCES.md); a build da engine só pode ser distribuída quando as pendências ali identificadas forem resolvidas.
+Os avisos e textos de licença dos componentes distribuídos ficam em `licenses/` e são copiados seletivamente para `Licenses/` na publicação; a página **Configurações > Sobre** abre essa pasta. A compilação do instalador permanece bloqueada até que os notices completos do Deno sejam obtidos e verificados. O pacote de fontes da Gyan/BtbN não integra esse gate porque esses binários não serão distribuídos. Consulte [`licenses/THIRD_PARTY_NOTICES.md`](licenses/THIRD_PARTY_NOTICES.md) e [`licenses/THIRD_PARTY_SOURCES.md`](licenses/THIRD_PARTY_SOURCES.md).
 
 ## Arquitetura e manutenção
 
 - `GetIt.App`: interface, interação do usuário, telas e fluxo principal
 - `GetIt.Core`: lógica compartilhada, configurações e serviços de infraestrutura
 - `GetIt.Tests`: testes automatizados para os fluxos críticos
-- `tools/Engine/Bin`: binários locais e ignorados pelo Git, copiados para o diretório `Engine/Bin` na publicação
+- `tools/Engine/Bin`: `yt-dlp.exe` e `deno.exe` locais, ignorados pelo Git e copiados para a publicação; FFmpeg/FFprobe são externos
 - `docs`: documentação operativa e de estrutura do produto
 
 ## Observações importantes

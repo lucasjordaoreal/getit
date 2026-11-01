@@ -2,6 +2,7 @@
 
 ### ✨ Novidades e melhorias:
 - **Base atualizada:** migração do aplicativo para .NET 10 e Windows App SDK self-contained na publicação x64.
+- **Engine de mídia externa:** configuração de uma pasta com FFmpeg/FFprobe, com validação de versões e encoders necessários; os binários não são baixados nem incluídos no instalador.
 - **Downloads mais confiáveis:** fila sequencial, isolamento dos arquivos de cada operação, preservação contra sobrescrita acidental e retry de análise e download.
 - **Presets de download:** perfis MP4, MP3 a 320 kbps e FLAC para novos itens, com personalização individual e opções avançadas MOV e WAV.
 - **Links em lote:** pré-visualização de até 50 linhas, com identificação de URLs inválidas e repetidas antes de confirmar a inclusão na fila.

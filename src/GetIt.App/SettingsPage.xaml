@@ -57,6 +57,31 @@
                         <ToggleSwitch x:Name="ThemeToggle" Header="Tema claro" OffContent="Escuro" OnContent="Claro"
                                       Toggled="ThemeToggle_Toggled" />
                         <Border Height="1" Background="{ThemeResource AppBorderBrush}" />
+                        <StackPanel Spacing="10">
+                            <TextBlock Text="Engine de mídia" FontSize="17" FontWeight="SemiBold"
+                                       Foreground="{ThemeResource AppTextBrush}" />
+                            <TextBlock Text="O GetIt não inclui FFmpeg. Escolha uma pasta que contenha ffmpeg.exe e ffprobe.exe; são necessários para downloads e conversões de mídia."
+                                       FontSize="13" Foreground="{ThemeResource AppSecondaryTextBrush}"
+                                       TextWrapping="Wrap" />
+                            <TextBlock x:Name="FfmpegFolderText" FontSize="13" Foreground="{ThemeResource AppTextBrush}"
+                                       TextWrapping="Wrap" />
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <Button x:Name="SelectFfmpegFolderButton" Content="Selecionar pasta"
+                                        Click="SelectFfmpegFolder_Click" MinHeight="40" />
+                                <Button x:Name="ResetFfmpegFolderButton" Content="Usar configuração automática"
+                                        Click="ResetFfmpegFolder_Click" MinHeight="40" />
+                                <ProgressRing x:Name="FfmpegProgressRing" Width="20" Height="20"
+                                              IsActive="False" Visibility="Collapsed" />
+                            </StackPanel>
+                            <HyperlinkButton Content="Obter FFmpeg para Windows"
+                                             NavigateUri="https://ffmpeg.org/download.html#build-windows"
+                                             HorizontalAlignment="Left" />
+                            <TextBlock Text="Use uma distribuição confiável e verifique a licença e as condições fornecidas pelo responsável por essa build. O GetIt não baixa nem atualiza FFmpeg."
+                                       FontSize="12" Foreground="{ThemeResource AppSecondaryTextBrush}"
+                                       TextWrapping="Wrap" />
+                            <InfoBar x:Name="FfmpegSettingsInfoBar" IsOpen="False" IsClosable="True" />
+                        </StackPanel>
+                        <Border Height="1" Background="{ThemeResource AppBorderBrush}" />
                         <StackPanel Spacing="12">
                             <TextBlock Text="Atualizações" FontSize="17" FontWeight="SemiBold" Foreground="{ThemeResource AppTextBrush}" />
                             <ToggleSwitch x:Name="AppAutoUpdateToggle" Header="Atualizar o GetIt automaticamente"

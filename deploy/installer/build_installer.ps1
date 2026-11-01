@@ -14,7 +14,7 @@ if (-not $version) {
 $version = $version.Trim()
 
 $engineBin = Join-Path $repoRoot "tools\Engine\Bin"
-$requiredEngineFiles = @("yt-dlp.exe", "ffmpeg.exe", "ffprobe.exe")
+$requiredEngineFiles = @("yt-dlp.exe", "deno.exe")
 $missingEngineFiles = @(
     foreach ($fileName in $requiredEngineFiles) {
         $filePath = Join-Path $engineBin $fileName
@@ -29,17 +29,26 @@ if ($missingEngineFiles.Count -gt 0) {
     throw "Engine incompleta em '$engineBin'. Arquivos ausentes ou vazios: $($missingEngineFiles -join ', ')."
 }
 
+$excludedEngineFiles = @("ffmpeg.exe", "ffprobe.exe", "ffplay.exe", "node.exe")
+$bundledExcludedEngineFiles = @(
+    foreach ($fileName in $excludedEngineFiles) {
+        if (Test-Path -LiteralPath (Join-Path $engineBin $fileName) -PathType Leaf) {
+            $fileName
+        }
+    }
+)
+if ($bundledExcludedEngineFiles.Count -gt 0) {
+    Write-Host "Os seguintes arquivos locais serão deliberadamente excluídos do pacote: $($bundledExcludedEngineFiles -join ', ')." -ForegroundColor Yellow
+}
+
 $licenseRoot = Join-Path $repoRoot "licenses"
 $requiredLicenseFiles = @(
     "THIRD_PARTY_NOTICES.md",
     "THIRD_PARTY_SOURCES.md",
-    "texts\FFmpeg-COPYING.GPLv2.txt",
-    "texts\FFmpeg-COPYING.GPLv3.txt",
-    "texts\FFmpeg-COPYING.LGPLv2.1.txt",
-    "texts\FFmpeg-COPYING.LGPLv3.txt",
     "texts\yt-dlp-UNLICENSE.txt",
+    "texts\yt-dlp-2026.08.19-THIRD-PARTY-LICENSES.txt",
     "texts\Deno-MIT-LICENSE.md",
-    "texts\Node-LICENSE",
+    "texts\Deno-THIRD-PARTY-NOTICES.txt",
     "texts\dotnet-runtime-LICENSE.TXT",
     "texts\dotnet-runtime-THIRD-PARTY-NOTICES.TXT",
     "texts\CommunityToolkit-Mvvm-8.4.2-LICENSE.md",
@@ -73,32 +82,6 @@ $missingLicenseFiles = @(
 )
 if ($missingLicenseFiles.Count -gt 0) {
     throw "Materiais de licenciamento ausentes em '$licenseRoot': $($missingLicenseFiles -join ', ')."
-}
-
-$sourceBundleDir = Join-Path $repoRoot "bin\ThirdPartySources"
-$sourceBundlePath = Join-Path $sourceBundleDir "GetIt-Third-Party-Sources-v$version.zip"
-$sourceHashPath = "$sourceBundlePath.sha256"
-$reviewPath = Join-Path $sourceBundleDir "REDISTRIBUTION-REVIEW.txt"
-foreach ($requiredPath in @($sourceBundlePath, $sourceHashPath, $reviewPath)) {
-    if (!(Test-Path -LiteralPath $requiredPath -PathType Leaf)) {
-        throw "Instalador bloqueado: falta '$requiredPath'. Prepare o pacote de fontes correspondente, seu SHA-256 e a revisão documentada antes de distribuir."
-    }
-}
-
-$sourceHash = (Get-Content -LiteralPath $sourceHashPath -Raw).Trim()
-if ($sourceHash -notmatch '^[A-Fa-f0-9]{64}$') {
-    throw "O arquivo de hash '$sourceHashPath' deve conter somente um SHA-256 hexadecimal de 64 caracteres."
-}
-if ((Get-FileHash -LiteralPath $sourceBundlePath -Algorithm SHA256).Hash -ne $sourceHash.ToUpperInvariant()) {
-    throw "O SHA-256 do pacote de fontes não corresponde ao arquivo '$sourceHashPath'."
-}
-
-$reviewContents = Get-Content -LiteralPath $reviewPath -Raw
-$reviewIsInvalid = ($reviewContents -notmatch "(?m)^version=$([regex]::Escape($version))\s*$") `
-    -or ($reviewContents -notmatch "(?m)^source-bundle-sha256=$([regex]::Escape($sourceHash))\s*$") `
-    -or ($reviewContents -notmatch '(?m)^reviewed-by=(?!\s*$).+')
-if ($reviewIsInvalid) {
-    throw "O arquivo '$reviewPath' deve registrar a versão, o hash do pacote de fontes e um revisor identificável."
 }
 
 $isccCandidates = @(
@@ -135,7 +118,7 @@ if ($LASTEXITCODE -ne 0) {
 $publishDir = Join-Path $repoRoot "src\GetIt.App\bin\Release\net10.0-windows10.0.26100.0\win-x64\publish"
 $missingPublishedLicenseFiles = @(
     foreach ($relativePath in $requiredLicenseFiles) {
-        $publishedPath = Join-Path $publishDir (Join-Path "Licenses" $relativePath)
+        $publishedPath = Join-Path $publishDir (Join-Path "Licenses" ([System.IO.Path]::GetFileName($relativePath)))
         if (!(Test-Path -LiteralPath $publishedPath -PathType Leaf)) {
             $publishedPath
         }
@@ -143,6 +126,30 @@ $missingPublishedLicenseFiles = @(
 )
 if ($missingPublishedLicenseFiles.Count -gt 0) {
     throw "A publicação não contém todos os documentos de terceiros: $($missingPublishedLicenseFiles -join ', ')."
+}
+
+$publishedEngineDir = Join-Path $publishDir "Engine\Bin"
+$missingPublishedEngineFiles = @(
+    foreach ($fileName in $requiredEngineFiles) {
+        $filePath = Join-Path $publishedEngineDir $fileName
+        if (!(Test-Path -LiteralPath $filePath -PathType Leaf) -or (Get-Item -LiteralPath $filePath).Length -eq 0) {
+            $fileName
+        }
+    }
+)
+if ($missingPublishedEngineFiles.Count -gt 0) {
+    throw "A publicação não contém os executáveis de runtime esperados: $($missingPublishedEngineFiles -join ', ')."
+}
+
+$unexpectedPublishedEngineFiles = @(
+    foreach ($fileName in $excludedEngineFiles) {
+        if (Test-Path -LiteralPath (Join-Path $publishedEngineDir $fileName) -PathType Leaf) {
+            $fileName
+        }
+    }
+)
+if ($unexpectedPublishedEngineFiles.Count -gt 0) {
+    throw "Distribuição bloqueada: a publicação contém executáveis que não devem ser redistribuídos: $($unexpectedPublishedEngineFiles -join ', ')."
 }
 
 $issFile = Join-Path $PSScriptRoot "GetItInstaller.iss"

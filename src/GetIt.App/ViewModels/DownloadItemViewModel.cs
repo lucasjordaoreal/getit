@@ -497,7 +497,7 @@ public partial class DownloadItemViewModel : ObservableObject
             return "O processo terminou, mas o arquivo final não foi localizado. Verifique a pasta de destino.";
         }
 
-        if (normalized.StartsWith("A engine de download está indisponível:", StringComparison.OrdinalIgnoreCase))
+        if (normalized.StartsWith("A engine de download/mídia está indisponível:", StringComparison.OrdinalIgnoreCase))
         {
             return normalized;
         }

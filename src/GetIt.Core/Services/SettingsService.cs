@@ -9,6 +9,8 @@ public class AppSettings
 {
     public string LastDownloadFolder { get; set; } = string.Empty;
 
+    public string FfmpegBinPath { get; set; } = string.Empty;
+
     /// <summary>
     /// User-chosen theme override. "Dark", "Light", or null (follow Windows).
     /// </summary>

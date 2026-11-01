@@ -36,6 +36,7 @@ public class SettingsServiceTests
             Assert.True(settings.IsAutoPasteEnabled);
             Assert.True(settings.IsAppAutoUpdateEnabled);
             Assert.True(settings.IsYtDlpAutoUpdateEnabled);
+            Assert.Equal(string.Empty, settings.FfmpegBinPath);
         }
         finally
         {
@@ -63,6 +64,34 @@ public class SettingsServiceTests
 
             var settings = SettingsService.LoadSettings();
 
+            Assert.True(settings.IsAppAutoUpdateEnabled);
+            Assert.True(settings.IsYtDlpAutoUpdateEnabled);
+        }
+        finally
+        {
+            if (original is not null)
+            {
+                File.WriteAllText(SettingsPath, original);
+            }
+            else if (File.Exists(SettingsPath))
+            {
+                File.Delete(SettingsPath);
+            }
+        }
+    }
+
+    [Fact]
+    public void FfmpegBinPath_ShouldBePersistedWithoutChangingOtherSettings()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"GetIt-FFmpeg-{Guid.NewGuid():N}");
+        var original = File.Exists(SettingsPath) ? File.ReadAllText(SettingsPath) : null;
+
+        try
+        {
+            SettingsService.UpdateSettings(settings => settings.FfmpegBinPath = path);
+
+            var settings = SettingsService.LoadSettings();
+            Assert.Equal(path, settings.FfmpegBinPath);
             Assert.True(settings.IsAppAutoUpdateEnabled);
             Assert.True(settings.IsYtDlpAutoUpdateEnabled);
         }

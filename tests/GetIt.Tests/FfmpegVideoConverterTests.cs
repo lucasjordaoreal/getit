@@ -19,6 +19,16 @@ public sealed class FfmpegIntegrationFactAttribute : FactAttribute
 public class FfmpegVideoConverterTests(ITestOutputHelper output)
 {
     [FfmpegIntegrationFact]
+    public async Task FfmpegEngineValidator_AcceptsTheConfiguredLocalEngine()
+    {
+        var engineDirectory = Environment.GetEnvironmentVariable("GETIT_FFMPEG_TEST_ENGINE")!;
+
+        var issues = await FfmpegEngineValidator.ValidateDirectoryAsync(engineDirectory);
+
+        Assert.Empty(issues);
+    }
+
+    [FfmpegIntegrationFact]
     public async Task Mov_UsesWorkingHardwareOrCpuAndProducesCompatibleVideoAndAudio()
     {
         using var media = await TestMedia.CreateAsync();
