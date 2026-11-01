@@ -8,7 +8,6 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Text.Json;
-using System.Security.Cryptography;
 using GetIt_App.Models;
 
 namespace GetIt_App.Services;
@@ -192,90 +191,30 @@ public partial class DownloadService : IDownloadService
         }
     }
 
-    private static string? ResolveExistingFilePath(string? detectedPath, string downloadDir, string extension, string? titleHint)
-    {
-        var normalized = NormalizePath(detectedPath);
-        if (!string.IsNullOrWhiteSpace(normalized) && File.Exists(normalized))
-            return normalized;
-
-        if (string.IsNullOrWhiteSpace(normalized))
-        {
-            var fallbackPath = GetFallbackTargetPath(downloadDir, extension, titleHint);
-            if (File.Exists(fallbackPath))
-                return fallbackPath;
-
-            var files = Directory.Exists(downloadDir)
-                ? Directory.GetFiles(downloadDir)
-                : Array.Empty<string>();
-
-            var candidates = files
-                .Where(file => string.Equals(Path.GetExtension(file), $".{extension.TrimStart('.')}", StringComparison.OrdinalIgnoreCase))
-                .OrderByDescending(file => File.GetLastWriteTimeUtc(file))
-                .ToList();
-
-            return candidates.FirstOrDefault();
-        }
-
-        return null;
-    }
-
     private sealed record MovInputs(string Video, string? Audio, bool HasEmbeddedAudio);
 
     private async Task<MovInputs> ResolveMovInputsAsync(IEnumerable<string> candidates,
         string sourceDirectory, CancellationToken cancellationToken)
     {
-        var paths = candidates.Where(File.Exists).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
-        if (paths.Count == 0)
-        {
-            // Recover downloads left by an interrupted older version, without treating a partial
-            // merged file as valid input. File suffixes are not reliable: HLS often saves TS as .mp4.
-            paths.AddRange(Directory.EnumerateFiles(sourceDirectory).Where(path =>
-                !path.EndsWith(".part", StringComparison.OrdinalIgnoreCase)
-                && !path.EndsWith(".ytdl", StringComparison.OrdinalIgnoreCase)
-                && !Path.GetFileName(path).Contains(".temp.", StringComparison.OrdinalIgnoreCase)));
-        }
-
-        string? video = null;
-        string? audio = null;
-        var embeddedAudio = false;
+        var paths = DownloadOutputResolver.GetProducedFiles(candidates, sourceDirectory);
+        var videoCandidates = new List<(string Path, bool HasAudio)>();
         var audioCandidates = new List<string>();
         foreach (var path in paths)
         {
             var tracks = await ReadMediaTracksAsync(path, cancellationToken);
-            if (tracks.Video && video is null)
-            {
-                video = path;
-                embeddedAudio = tracks.Audio;
-            }
-            if (tracks.Audio && !tracks.Video && audio is null) audio = path;
-            if (tracks.Audio) audioCandidates.Add(path);
+            if (tracks.Video) videoCandidates.Add((path, tracks.Audio));
+            else if (tracks.Audio) audioCandidates.Add(path);
         }
-        if (video is null)
-            throw new FileNotFoundException("Não foi possível localizar a faixa de vídeo para conversão.", sourceDirectory);
-        audio ??= audioCandidates.FirstOrDefault(path => !path.Equals(video, StringComparison.OrdinalIgnoreCase));
-        return new MovInputs(video, audio, embeddedAudio);
-    }
 
-    private async Task<MovInputs?> TryGetCachedMovInputsAsync(string sourceDirectory, CancellationToken cancellationToken)
-    {
-        var mediaExtensions = new[] { ".mp4", ".webm", ".mkv", ".m4a", ".aac", ".opus", ".ogg", ".ts", ".m4v", ".mov" };
-        var completeFiles = Directory.EnumerateFiles(sourceDirectory).Where(path =>
-            mediaExtensions.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase)
-            && !Path.GetFileName(path).Contains(".temp.", StringComparison.OrdinalIgnoreCase)
-            && new FileInfo(path).Length > 0).ToArray();
-        if (completeFiles.Length == 0) return null;
-        try
-        {
-            var inputs = await ResolveMovInputsAsync(completeFiles, sourceDirectory, cancellationToken);
-            // A video-only fragment is not enough to skip the downloader: the audio may still be pending.
-            return inputs.Audio is not null || inputs.HasEmbeddedAudio ? inputs : null;
-        }
-        catch (OperationCanceledException) { throw; }
-        catch (Exception ex) when (ex is IOException or InvalidOperationException or JsonException or TimeoutException)
-        {
-            AppLogger.LogWarning($"Intermediate media is not ready for a local retry: {ex.Message}");
-            return null;
-        }
+        if (videoCandidates.Count == 0)
+            throw new FileNotFoundException("Não foi possível localizar a faixa de vídeo para conversão.", sourceDirectory);
+        if (videoCandidates.Count > 1)
+            throw new InvalidDataException("Mais de uma faixa de vídeo foi produzida pela mesma operação de download.");
+        if (audioCandidates.Count > 1)
+            throw new InvalidDataException("Mais de uma faixa de áudio foi produzida pela mesma operação de download.");
+
+        var video = videoCandidates[0];
+        return new MovInputs(video.Path, audioCandidates.FirstOrDefault(), video.HasAudio);
     }
 
     private async Task<string> ConvertMovInputsAsync(MovInputs inputs, IEnumerable<string> downloadedPaths,
@@ -320,6 +259,42 @@ public partial class DownloadService : IDownloadService
         catch (IOException ex) { AppLogger.LogWarning($"Intermediate cleanup deferred: {ex.Message}"); }
         catch (UnauthorizedAccessException ex) { AppLogger.LogWarning($"Intermediate cleanup deferred: {ex.Message}"); }
         return converted;
+    }
+
+    private sealed class TemporaryDownloadDirectory : IDisposable
+    {
+        public string Path { get; }
+
+        public TemporaryDownloadDirectory(string downloadDirectory)
+        {
+            Path = System.IO.Path.Combine(downloadDirectory, ".getit-work", Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(Path);
+        }
+
+        public void Dispose()
+        {
+            try
+            {
+                if (Directory.Exists(Path))
+                {
+                    Directory.Delete(Path, recursive: true);
+                }
+
+                var workDirectory = Directory.GetParent(Path);
+                if (workDirectory is not null && !Directory.EnumerateFileSystemEntries(workDirectory.FullName).Any())
+                {
+                    Directory.Delete(workDirectory.FullName);
+                }
+            }
+            catch (IOException ex)
+            {
+                AppLogger.LogWarning($"Temporary download cleanup deferred: {ex.Message}");
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                AppLogger.LogWarning($"Temporary download cleanup deferred: {ex.Message}");
+            }
+        }
     }
 
     private async Task<(bool Video, bool Audio)> ReadMediaTracksAsync(string path, CancellationToken cancellationToken)
@@ -524,17 +499,10 @@ public partial class DownloadService : IDownloadService
         }
 
         ValidateDownloadDirectory(downloadDir);
+        downloadDir = Path.GetFullPath(downloadDir);
 
         string targetExtension = isAudioOnly ? normalizedAudioFormat : (string.IsNullOrWhiteSpace(videoExt) ? "mp4" : videoExt.TrimStart('.'));
         var convertMov = !isAudioOnly && targetExtension.Equals("mov", StringComparison.OrdinalIgnoreCase);
-        var sourceDirectory = downloadDir;
-        if (convertMov)
-        {
-            // Keep resumable, private intermediate media separate from files already owned by the user.
-            var key = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(url + "\n" + formatId)))[..20];
-            sourceDirectory = Path.Combine(downloadDir, ".getit-work", key);
-            Directory.CreateDirectory(sourceDirectory);
-        }
         string expectedPath = GetFallbackTargetPath(downloadDir, targetExtension, titleHint);
 
         if (File.Exists(expectedPath) && !overwriteExistingFiles)
@@ -542,21 +510,8 @@ public partial class DownloadService : IDownloadService
             throw new IOException($"Arquivo já existe e não será sobrescrito: {expectedPath}");
         }
 
-        if (!convertMov && overwriteExistingFiles && File.Exists(expectedPath))
-        {
-            File.Delete(expectedPath);
-        }
-
-        if (convertMov)
-        {
-            var cachedInputs = await TryGetCachedMovInputsAsync(sourceDirectory, cancellationToken);
-            if (cachedInputs is not null)
-            {
-                progress?.Report(new DownloadProgressInfo { Status = "Reutilizando vídeo e áudio já baixados…" });
-                return await ConvertMovInputsAsync(cachedInputs, Array.Empty<string>(), sourceDirectory, downloadDir,
-                    titleHint, overwriteExistingFiles, progress, cancellationToken);
-            }
-        }
+        using var operationDirectory = new TemporaryDownloadDirectory(downloadDir);
+        var sourceDirectory = operationDirectory.Path;
 
         var arguments = new List<string>
         {
@@ -726,17 +681,15 @@ public partial class DownloadService : IDownloadService
                 titleHint, overwriteExistingFiles, progress, cancellationToken);
         }
 
-        var resolvedPath = ResolveExistingFilePath(finalPath, downloadDir, targetExtension, titleHint);
-        if (!string.IsNullOrWhiteSpace(resolvedPath))
-            return resolvedPath;
+        var resolvedPath = DownloadOutputResolver.ResolveSingleFile(finalPath, sourceDirectory, targetExtension);
+        if (resolvedPath is null)
+            throw new FileNotFoundException("Não foi possível localizar um arquivo completo produzido por esta operação de download.", sourceDirectory);
 
-        if (!string.IsNullOrWhiteSpace(finalPath) && File.Exists(finalPath))
-            return finalPath;
+        var targetPath = Path.Combine(downloadDir, Path.GetFileName(resolvedPath));
+        if (File.Exists(targetPath) && !overwriteExistingFiles)
+            throw new IOException($"Arquivo já existe e não será sobrescrito: {targetPath}");
 
-        var fallback = GetFallbackTargetPath(downloadDir, targetExtension, titleHint);
-        if (File.Exists(fallback))
-            return fallback;
-
-        throw new FileNotFoundException($"Não foi possível localizar o arquivo final baixado em '{downloadDir}'.", downloadDir);
+        File.Move(resolvedPath, targetPath, overwriteExistingFiles);
+        return targetPath;
     }
 }

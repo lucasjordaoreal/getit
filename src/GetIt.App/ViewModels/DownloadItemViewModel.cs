@@ -482,10 +482,8 @@ public partial class DownloadItemViewModel : ObservableObject
                     titleHint: Metadata.Title
                 );
 
-                if (string.IsNullOrEmpty(resultPath))
-                {
-                    resultPath = destinationFolder;
-                }
+                if (string.IsNullOrWhiteSpace(resultPath) || !File.Exists(resultPath))
+                    throw new FileNotFoundException("O download terminou sem um arquivo final válido.", resultPath);
 
                 DownloadedFilePath = resultPath;
                 DownloadedFolderPath = Path.GetDirectoryName(resultPath) ?? destinationFolder;
